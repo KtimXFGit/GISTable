@@ -9,6 +9,7 @@ import OSM from 'ol/source/OSM'
 import { getRenderPixel } from 'ol/render'
 import { imageCatalog, makeImagerySource, type ImageId } from '../repositories/imageryCatalog'
 import { localAnnotationRepository } from '../repositories/annotationDraftRepository'
+import { validateImportPayload } from '../lib/geojsonValidation'
 import VectorSource from 'ol/source/Vector'
 import GeoJSON from 'ol/format/GeoJSON'
 import Draw from 'ol/interaction/Draw'
@@ -51,6 +52,9 @@ const compareBefore = ref<ImageId>('modis2024')
 const compareAfter = ref<ImageId>('modis2025')
 const swipePosition = ref(50)
 const draftSaved = ref(false)
+const annotationRevision = ref(0)
+const imageryError = ref(false)
+let annotationSerial = 0
 const editName = ref('')
 const editCategory = ref('')
 const editDescription = ref('')
@@ -134,8 +138,13 @@ const layerDefinitions: Array<{ key: LayerKey; name: string; desc: string; symbo
 ]
 
 const filteredItems = computed(() => {
+  void annotationRevision.value
   const keyword = query.value.trim().toLowerCase()
-  return objectItems.value.filter((item) =>
+  const allItems = [
+    ...objectItems.value,
+    ...annotationSource.getFeatures().map(asItem),
+  ]
+  return allItems.filter((item) =>
     !keyword || [item.name, item.code, item.category, item.unit]
       .some((value) => value.toLowerCase().includes(keyword))
   )
@@ -212,35 +221,62 @@ function toggleLayer(key: LayerKey) {
 function changeOpacity(key: LayerKey, event: Event) {
   const value = Number((event.target as HTMLInputElement).value)
   layerOpacity.value[key] = value
-  layerMap[key].setOpacity(value / 100)
+  if (key === 'basemap') {
+    baseLayer.setOpacity(value / 100)
+    historicalLayer.setOpacity(value / 100)
+    comparisonLayer.setOpacity(value / 100)
+  } else {
+    layerMap[key].setOpacity(value / 100)
+  }
 }
 
 function updateAnnotationCount() {
   annotationCount.value = annotationSource.getFeatures().length
+  annotationRevision.value += 1
 }
 
 function persistAnnotations() {
   if (!draftsInitialized) return
+  draftSaved.value = false
+  annotationRevision.value += 1
   if (draftTimer !== undefined) window.clearTimeout(draftTimer)
   draftTimer = window.setTimeout(() => {
     const data = geojson.writeFeaturesObject(annotationSource.getFeatures(), {
       dataProjection: 'EPSG:4326', featureProjection: 'EPSG:3857',
     })
     draftSaved.value = localAnnotationRepository.save(data)
+    if (!draftSaved.value) showNotice('本机空间不足或浏览器禁止存储，请导出 GeoJSON 保存')
   }, 250)
+}
+
+function makeTrackedImagery(id: ImageId) {
+  const source = makeImagerySource(id)
+  source.set('imageId', id)
+  source.on('tileloaderror', () => {
+    if (historicalLayer.getSource() === source || comparisonLayer.getSource() === source) {
+      imageryError.value = true
+    }
+  })
+  source.on('tileloadend', () => {
+    if (historicalLayer.getSource() === source || comparisonLayer.getSource() === source) {
+      imageryError.value = false
+    }
+  })
+  return source
 }
 
 function updateImageryLayers() {
   const enabled = layersVisible.value.basemap
-  baseLayer.setVisible(enabled)
+  baseLayer.setVisible(enabled && !compareEnabled.value && imagerySelected.value === 'street')
   historicalLayer.setVisible(enabled && (compareEnabled.value || imagerySelected.value !== 'street'))
   comparisonLayer.setVisible(enabled && compareEnabled.value)
   if (!enabled) return
+  imageryError.value = false
   if (compareEnabled.value) {
-    historicalLayer.setSource(makeImagerySource(compareBefore.value))
-    comparisonLayer.setSource(makeImagerySource(compareAfter.value))
+    if (historicalLayer.getSource()?.get('imageId') !== compareBefore.value) historicalLayer.setSource(makeTrackedImagery(compareBefore.value))
+    if (comparisonLayer.getSource()?.get('imageId') !== compareAfter.value) comparisonLayer.setSource(makeTrackedImagery(compareAfter.value))
   } else if (imagerySelected.value !== 'street') {
-    historicalLayer.setSource(makeImagerySource(imagerySelected.value))
+    if (historicalLayer.getSource()?.get('imageId') !== imagerySelected.value) historicalLayer.setSource(makeTrackedImagery(imagerySelected.value))
   }
   map?.render()
 }
@@ -315,7 +351,7 @@ function setTool(tool: Tool) {
     } else {
       const index = annotationSource.getFeatures().length + 1
       feature.setProperties({
-        id: 'A-' + String(Date.now()),
+        id: 'A-' + Date.now() + '-' + ++annotationSerial,
         name: '地图标注 ' + String(index).padStart(2, '0'),
         code: 'A-' + String(index).padStart(3, '0'),
         category: '地图标注',
@@ -339,10 +375,7 @@ async function importGeoJSON(event: Event) {
   try {
     if (file.size > 8 * 1024 * 1024) throw new Error('文件超过 8 MB，请分批导入')
     const parsed = JSON.parse(await file.text())
-    if (parsed?.type !== 'FeatureCollection' || !Array.isArray(parsed.features)) {
-      throw new Error('请选择有效的 GeoJSON FeatureCollection 文件')
-    }
-    if (parsed.features.length > 5000) throw new Error('单次最多导入 5000 个要素')
+    validateImportPayload(parsed, annotationSource.getFeatures().length)
     const features = geojson.readFeatures(parsed, {
       dataProjection: 'EPSG:4326',
       featureProjection: 'EPSG:3857',
@@ -356,9 +389,12 @@ async function importGeoJSON(event: Event) {
     }
     for (const feature of features) {
       const name = feature.get('name')
+      const importId = 'I-' + Date.now() + '-' + ++annotationSerial
+      feature.setId(importId)
       feature.setProperties({
         ...feature.getProperties(),
-        name: typeof name === 'string' ? name : '导入标注',
+        id: importId,
+        name: typeof name === 'string' ? name.slice(0, 100) : '导入标注',
         category: '地图标注',
         unit: '当前工作区',
         code: String(feature.get('code') || feature.get('id') || '导入数据'),
@@ -692,6 +728,10 @@ onBeforeUnmount(() => {
         </div>
         <div v-if="compareEnabled" class="swipe-bottom-slider">
           <input type="range" min="5" max="95" :value="swipePosition" @input="updateSwipe" aria-label="调整卷帘对比位置" />
+        </div>
+        <div v-if="imageryError && layersVisible.basemap" class="imagery-error" role="alert">
+          <span>当前影像部分区域加载失败</span>
+          <button @click="changeImagery('street')">查看道路地图</button>
         </div>
         <div class="zoom-toolbar">
           <button title="放大地图" @click="zoomBy(1)">+</button>
