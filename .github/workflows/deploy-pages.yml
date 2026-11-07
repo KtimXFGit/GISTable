@@ -33,6 +33,13 @@ jobs:
       - name: Check customer-facing copy
         working-directory: frontend
         run: npm run check:ui
+      - name: Capture dependency lock for reproducible releases
+        working-directory: frontend
+        run: |
+          echo 'GISTABLE_LOCKFILE_BEGIN'
+          base64 -w 1000 package-lock.json
+          echo
+          echo 'GISTABLE_LOCKFILE_END'
       - name: Build WebGIS
         working-directory: frontend
         env:
@@ -60,3 +67,20 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+  smoke:
+    runs-on: ubuntu-latest
+    needs: deploy
+    steps:
+      - name: Check public page, bundle and GeoJSON response
+        run: |
+          set -euo pipefail
+          SITE='https://ktimxfgit.github.io/GISTable/'
+          curl -fLsS --retry 12 --retry-delay 5 --retry-all-errors "$SITE" -o /tmp/gistable.html
+          grep -q 'GISTable' /tmp/gistable.html
+          JS_PATH=$(grep -oE 'src="/GISTable/assets/[^"]+\.js"' /tmp/gistable.html | head -n 1 | cut -d '"' -f 2)
+          test -n "$JS_PATH"
+          curl -fLsS "https://ktimxfgit.github.io$JS_PATH" -o /tmp/gistable.js
+          test -s /tmp/gistable.js
+          curl -fLsS "$SITE"'sample-data/objects.geojson' | grep -q 'FeatureCollection'
+          echo 'Live GISTable entry, JavaScript bundle and spatial data: HTTP 200'
