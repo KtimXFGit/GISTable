@@ -41,6 +41,9 @@ jobs:
       - name: Strict Vue and TypeScript validation
         working-directory: frontend
         run: npx --no-install vue-tsc --noEmit -p tsconfig.json
+      - name: GeoJSON security and regression unit tests
+        working-directory: frontend
+        run: node --experimental-strip-types --test scripts/geojson-validation.test.mjs
       - name: Build WebGIS
         working-directory: frontend
         env:
