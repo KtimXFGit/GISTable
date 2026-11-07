@@ -56,6 +56,13 @@ export function validateImportPayload(data: unknown, existingFeatureCount: numbe
     if (feature.properties !== null && feature.properties !== undefined && !record(feature.properties)) {
       throw new Error('GeoJSON 属性格式无效')
     }
+    if (record(feature.properties)) {
+      for (const key of Object.keys(feature.properties)) {
+        if (['__proto__', 'constructor', 'prototype', 'geometry'].includes(key)) {
+          throw new Error('GeoJSON 属性包含保留字段')
+        }
+      }
+    }
     visitCoords(feature.geometry.coordinates, supportedTypes[type])
   }
 }

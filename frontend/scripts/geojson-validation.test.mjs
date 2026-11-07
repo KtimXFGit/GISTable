@@ -38,3 +38,11 @@ test('rejects invalid attribute shapes', () => {
   const f=point(); f.properties=[]
   assert.throws(() => validateImportPayload(featureCollection([f]),0))
 })
+
+test('rejects reserved property names before creating OpenLayers objects', () => {
+  for (const key of ['__proto__', 'constructor', 'prototype', 'geometry']) {
+    const feature = point()
+    feature.properties = JSON.parse('{"' + key + '":"unsafe"}')
+    assert.throws(() => validateImportPayload(featureCollection([feature]), 0), /保留字段/)
+  }
+})
