@@ -27,19 +27,14 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
       - name: Install dependencies
         working-directory: frontend
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
       - name: Check customer-facing copy
         working-directory: frontend
         run: npm run check:ui
-      - name: Capture dependency lock for reproducible releases
-        working-directory: frontend
-        run: |
-          echo 'GISTABLE_LOCKFILE_BEGIN'
-          base64 -w 1000 package-lock.json
-          echo
-          echo 'GISTABLE_LOCKFILE_END'
       - name: Build WebGIS
         working-directory: frontend
         env:
