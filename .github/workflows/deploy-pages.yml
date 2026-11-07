@@ -79,3 +79,32 @@ jobs:
           test -s /tmp/gistable.js
           curl -fLsS "$SITE"'sample-data/objects.geojson' | grep -q 'FeatureCollection'
           echo 'Live GISTable entry, JavaScript bundle and spatial data: HTTP 200'
+
+  browser:
+    runs-on: ubuntu-latest
+    needs: smoke
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install locked project dependencies
+        working-directory: frontend
+        run: npm ci --no-audit --no-fund
+      - name: Install browser test runner
+        working-directory: frontend
+        run: npm install --no-save --package-lock=false --no-audit --no-fund playwright@1.58.2
+      - name: Verify GIS interaction in Chromium
+        working-directory: frontend
+        run: node scripts/browser-smoke.mjs
+      - name: Upload failure screenshot
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gistable-browser-failure
+          path: frontend/browser-smoke-failure.png
+          if-no-files-found: ignore
