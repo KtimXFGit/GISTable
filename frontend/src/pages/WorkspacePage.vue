@@ -61,6 +61,11 @@ const layersVisible = ref<Record<LayerKey, boolean>>({
 const layerOpacity = ref<Record<LayerKey, number>>({
   basemap: 100, roads: 100, facilities: 100, annotations: 100,
 })
+const usesSentinelImagery = computed(() => layersVisible.value.basemap && (
+  compareEnabled.value
+    ? compareBefore.value === 'sentinel2016' || compareAfter.value === 'sentinel2016'
+    : imagerySelected.value === 'sentinel2016'
+))
 
 const roadSource = new VectorSource<Feature<Geometry>>()
 const facilitySource = new VectorSource<Feature<Geometry>>()
@@ -712,6 +717,10 @@ onBeforeUnmount(() => {
           <span><i class="legend-line"></i> 公路线路</span>
           <span><i class="legend-dot amber"></i> 道路设施</span>
           <span><i class="legend-dot blue"></i> 地图标注</span>
+        </div>
+        <div v-if="usesSentinelImagery" class="raster-attribution">
+          <a href="https://cloudless.eox.at" target="_blank" rel="noopener noreferrer">EOxCloudless</a>
+          by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2016 &amp; 2017)
         </div>
         <div class="map-footnote">
           <span>{{ compareEnabled ? 'NASA GIBS / EOxCloudless' : imagerySelected === 'street' ? 'OpenStreetMap' : imagerySelected === 'sentinel2016' ? 'EOxCloudless' : 'NASA GIBS' }}</span>
