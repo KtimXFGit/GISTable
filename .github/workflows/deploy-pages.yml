@@ -77,7 +77,8 @@ jobs:
           test -n "$JS_PATH"
           curl -fLsS "https://ktimxfgit.github.io$JS_PATH" -o /tmp/gistable.js
           test -s /tmp/gistable.js
-          curl -fLsS "$SITE"'sample-data/objects.geojson' | grep -q 'FeatureCollection'
+          curl -fLsS --retry 5 --retry-delay 2 "$SITE"'sample-data/objects.geojson' -o /tmp/gistable-objects.geojson
+          grep -q 'FeatureCollection' /tmp/gistable-objects.geojson
           echo 'Live GISTable entry, JavaScript bundle and spatial data: HTTP 200'
 
   browser:
