@@ -1,0 +1,25 @@
+{
+  "name": "gistable-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0",
+    "check:ui": "node scripts/check-ui.mjs"
+  },
+  "dependencies": {
+    "ol": "10.6.1",
+    "vue": "3.5.18",
+    "vue-router": "4.5.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "6.0.1",
+    "typescript": "5.9.2",
+    "vite": "7.1.4"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  }
+}

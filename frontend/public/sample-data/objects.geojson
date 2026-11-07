@@ -1,0 +1,283 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "id": "R-101",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            104.028,
+            30.644
+          ],
+          [
+            104.042,
+            30.652
+          ],
+          [
+            104.057,
+            30.657
+          ],
+          [
+            104.073,
+            30.665
+          ],
+          [
+            104.095,
+            30.67
+          ],
+          [
+            104.116,
+            30.681
+          ]
+        ]
+      },
+      "properties": {
+        "id": "R-101",
+        "name": "A01 线路",
+        "code": "R-101",
+        "category": "道路线路",
+        "level": "主干线路",
+        "unit": "道路基础资料",
+        "description": "路线几何及关联设施信息"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "R-102",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            104.037,
+            30.694
+          ],
+          [
+            104.05,
+            30.678
+          ],
+          [
+            104.063,
+            30.666
+          ],
+          [
+            104.077,
+            30.648
+          ],
+          [
+            104.089,
+            30.633
+          ],
+          [
+            104.109,
+            30.619
+          ]
+        ]
+      },
+      "properties": {
+        "id": "R-102",
+        "name": "A02 线路",
+        "code": "R-102",
+        "category": "道路线路",
+        "level": "一般线路",
+        "unit": "道路基础资料",
+        "description": "路线几何及关联设施信息"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "R-103",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            104.025,
+            30.617
+          ],
+          [
+            104.043,
+            30.624
+          ],
+          [
+            104.063,
+            30.633
+          ],
+          [
+            104.078,
+            30.642
+          ],
+          [
+            104.102,
+            30.648
+          ],
+          [
+            104.129,
+            30.658
+          ]
+        ]
+      },
+      "properties": {
+        "id": "R-103",
+        "name": "A03 线路",
+        "code": "R-103",
+        "category": "道路线路",
+        "level": "一般线路",
+        "unit": "道路基础资料",
+        "description": "路线几何及关联设施信息"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "F-201",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          104.055,
+          30.656
+        ]
+      },
+      "properties": {
+        "id": "F-201",
+        "name": "道路设施点 01",
+        "code": "F-201",
+        "category": "道路附属设施",
+        "unit": "基础资料",
+        "description": "空间位置及基本属性"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "F-202",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          104.093,
+          30.67
+        ]
+      },
+      "properties": {
+        "id": "F-202",
+        "name": "道路设施点 02",
+        "code": "F-202",
+        "category": "道路附属设施",
+        "unit": "基础资料",
+        "description": "空间位置及基本属性"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "F-203",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          104.076,
+          30.65
+        ]
+      },
+      "properties": {
+        "id": "F-203",
+        "name": "路口信息点 01",
+        "code": "F-203",
+        "category": "平交路口",
+        "unit": "基础资料",
+        "description": "空间位置及基本属性"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "F-204",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          104.046,
+          30.682
+        ]
+      },
+      "properties": {
+        "id": "F-204",
+        "name": "路口信息点 02",
+        "code": "F-204",
+        "category": "平交路口",
+        "unit": "基础资料",
+        "description": "空间位置及基本属性"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "F-205",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          104.097,
+          30.648
+        ]
+      },
+      "properties": {
+        "id": "F-205",
+        "name": "交通设施点 01",
+        "code": "F-205",
+        "category": "交通设施",
+        "unit": "基础资料",
+        "description": "空间位置及基本属性"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "F-206",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          104.061,
+          30.633
+        ]
+      },
+      "properties": {
+        "id": "F-206",
+        "name": "交通设施点 02",
+        "code": "F-206",
+        "category": "交通设施",
+        "unit": "基础资料",
+        "description": "空间位置及基本属性"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "F-207",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          104.117,
+          30.678
+        ]
+      },
+      "properties": {
+        "id": "F-207",
+        "name": "道路设施点 03",
+        "code": "F-207",
+        "category": "道路附属设施",
+        "unit": "基础资料",
+        "description": "空间位置及基本属性"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "F-208",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          104.037,
+          30.621
+        ]
+      },
+      "properties": {
+        "id": "F-208",
+        "name": "路口信息点 03",
+        "code": "F-208",
+        "category": "平交路口",
+        "unit": "基础资料",
+        "description": "空间位置及基本属性"
+      }
+    }
+  ]
+}
