@@ -525,6 +525,8 @@ onBeforeUnmount(() => {
       <div class="header-divider"></div>
       <nav class="primary-nav" aria-label="主要导航">
         <button class="nav-link active" @click="resetView"><span class="nav-symbol">▧</span> 一张图</button>
+        <button class="nav-link" @click="leftTab = 'imagery'"><span class="nav-symbol">◈</span> 遥感影像</button>
+        <button class="nav-link" :class="{ active: compareEnabled }" @click="toggleComparison"><span class="nav-symbol">◫</span> 影像卷帘</button>
       </nav>
       <div class="header-spacer"></div>
       <span class="header-scope"><span class="scope-dot"></span> 空间信息工作台</span>
@@ -549,6 +551,7 @@ onBeforeUnmount(() => {
         <div class="left-tabs">
           <button :class="{ selected: leftTab === 'layers' }" @click="leftTab = 'layers'">图层管理</button>
           <button :class="{ selected: leftTab === 'objects' }" @click="leftTab = 'objects'">对象目录</button>
+          <button :class="{ selected: leftTab === 'imagery' }" @click="leftTab = 'imagery'">遥感影像</button>
         </div>
 
         <div class="left-scroll">
@@ -590,6 +593,44 @@ onBeforeUnmount(() => {
             </div>
             <button v-if="filteredItems.length > 5" class="text-link" @click="leftTab = 'objects'">查看全部对象 <span>→</span></button>
           </template>
+          <template v-else-if="leftTab === 'imagery'">
+            <div class="section-heading"><span>影像图层</span><small>资料目录</small></div>
+            <div class="imagery-group">
+              <label class="imagery-label" for="gis-imagery-source">地图背景</label>
+              <select id="gis-imagery-source" class="imagery-select" :value="imagerySelected"
+                @change="changeImagery(($event.target as HTMLSelectElement).value)">
+                <option value="street">道路地图</option>
+                <option v-for="item in imageCatalog" :key="item.id" :value="item.id">{{ item.name }}</option>
+              </select>
+              <p class="imagery-description">切换不同来源的卫星影像和道路底图。</p>
+            </div>
+            <div class="section-heading second-heading"><span>多时相对比</span><small>卷帘浏览</small></div>
+            <div class="imagery-group">
+              <button class="compare-switch" :class="{ selected: compareEnabled }" @click="toggleComparison">
+                <span>◫</span> {{ compareEnabled ? '关闭卷帘对比' : '开启卷帘对比' }}
+              </button>
+              <template v-if="compareEnabled">
+                <label class="imagery-label" for="gis-time-a">左侧影像</label>
+                <select id="gis-time-a" class="imagery-select" :value="compareBefore"
+                  @change="changeComparisonDate('before', ($event.target as HTMLSelectElement).value)">
+                  <option v-for="item in imageCatalog" :key="item.id" :value="item.id">{{ item.name }}</option>
+                </select>
+                <label class="imagery-label" for="gis-time-b">右侧影像</label>
+                <select id="gis-time-b" class="imagery-select" :value="compareAfter"
+                  @change="changeComparisonDate('after', ($event.target as HTMLSelectElement).value)">
+                  <option v-for="item in imageCatalog" :key="item.id" :value="item.id">{{ item.name }}</option>
+                </select>
+                <label class="imagery-label" for="gis-swipe-left">对比位置 {{ swipePosition }}%</label>
+                <input id="gis-swipe-left" class="imagery-range" type="range" min="5" max="95" :value="swipePosition" @input="updateSwipe" />
+              </template>
+              <p class="imagery-description">不同来源影像的采集日期、分辨率可能不同，变化判断需核对影像元数据。</p>
+            </div>
+            <div class="section-heading second-heading"><span>影像目录</span></div>
+            <div v-for="item in imageCatalog" :key="item.id" class="imagery-dataset">
+              <span class="image-catalog-dot">◈</span>
+              <div><strong>{{ item.name }}</strong><small>{{ item.resolution }} · {{ item.provider }}</small></div>
+            </div>
+          </template>
           <template v-else>
             <div class="section-heading"><span>对象检索</span><small>{{ filteredItems.length }} 条记录</small></div>
             <label class="search-box">
@@ -623,7 +664,7 @@ onBeforeUnmount(() => {
         <div class="hud-corner hud-se" aria-hidden="true"></div>
         <div class="map-heading">
           <span class="map-heading-label"><span class="online-dot"></span> 公路空间信息</span>
-          <span class="map-heading-sub">一张图综合视图</span>
+          <span class="map-heading-sub">{{ compareEnabled ? '多时相影像卷帘' : imageryLabel }}</span>
         </div>
 
         <div class="map-toolbar" aria-label="地图工具">
@@ -637,6 +678,16 @@ onBeforeUnmount(() => {
           <button :class="{ toolactive: activeTool === 'area' }" title="测量面积" @click="setTool('area')"><span>▱</span><small>测面</small></button>
         </div>
 
+        <div v-if="compareEnabled" class="imagery-swipe-labels">
+          <span>{{ imageCatalog.find((x) => x.id === compareBefore)?.name }}</span>
+          <span>{{ imageCatalog.find((x) => x.id === compareAfter)?.name }}</span>
+        </div>
+        <div v-if="compareEnabled" class="swipe-divider" :style="{ left: swipePosition + '%' }" aria-hidden="true">
+          <span class="swipe-grip">↔</span>
+        </div>
+        <div v-if="compareEnabled" class="swipe-bottom-slider">
+          <input type="range" min="5" max="95" :value="swipePosition" @input="updateSwipe" aria-label="调整卷帘对比位置" />
+        </div>
         <div class="zoom-toolbar">
           <button title="放大地图" @click="zoomBy(1)">+</button>
           <button title="缩小地图" @click="zoomBy(-1)">−</button>
@@ -663,6 +714,8 @@ onBeforeUnmount(() => {
           <span><i class="legend-dot blue"></i> 地图标注</span>
         </div>
         <div class="map-footnote">
+          <span>{{ compareEnabled ? 'NASA GIBS / EOxCloudless' : imagerySelected === 'street' ? 'OpenStreetMap' : imagerySelected === 'sentinel2016' ? 'EOxCloudless' : 'NASA GIBS' }}</span>
+          <span class="foot-separator">/</span>
           <span>WGS84</span><span class="foot-separator">/</span>
           <span>{{ currentLonLat }}</span>
           <span class="foot-separator">/</span>
@@ -689,8 +742,19 @@ onBeforeUnmount(() => {
             <div><span>对象类型</span><strong>{{ selected.category }}</strong></div>
             <div><span>所属资料</span><strong>{{ selected.unit }}</strong></div>
           </div>
-          <div class="detail-section-title">对象描述</div>
-          <p class="detail-description">{{ selected.description }}</p>
+          <template v-if="selectedIsAnnotation">
+            <div class="detail-section-title">标注属性</div>
+            <div class="annotation-editor">
+              <label>名称<input v-model="editName" maxlength="100" aria-label="标注名称" /></label>
+              <label>类别<input v-model="editCategory" maxlength="50" aria-label="标注类别" /></label>
+              <label>备注<textarea v-model="editDescription" maxlength="300" rows="3" aria-label="标注备注"></textarea></label>
+              <button @click="saveProperties">保存属性</button>
+            </div>
+          </template>
+          <template v-else>
+            <div class="detail-section-title">对象描述</div>
+            <p class="detail-description">{{ selected.description }}</p>
+          </template>
           <div class="detail-buttons">
             <button @click="focusFeature(selected!)">⌖ 定位对象</button>
             <button v-if="annotationSource.hasFeature(selected.feature)" class="danger-button" @click="removeSelected">移除标注</button>
@@ -711,7 +775,7 @@ onBeforeUnmount(() => {
           <div class="info-note"><span>◉</span> 使用上方绘制工具可添加点、线、面标注。</div>
         </template>
         <div class="right-bottom" v-if="annotationCount">
-          <div class="workspace-count"><span>当前工作区标注</span><strong>{{ annotationCount }} 个</strong></div>
+          <div class="workspace-count"><span>当前工作区标注</span><strong>{{ annotationCount }} 个 · {{ draftSaved ? '已保存本机' : '未保存' }}</strong></div>
           <button class="outline-button" @click="exportGeoJSON">⇩ 导出 GeoJSON</button>
           <button class="muted-button" @click="clearAnnotations">清空标注</button>
         </div>
@@ -721,7 +785,7 @@ onBeforeUnmount(() => {
     <footer class="status-bar">
       <span><i class="status-connected"></i> 地图服务</span>
       <span class="status-divider"></span>
-      <span>地图数据 © OpenStreetMap contributors</span>
+      <span>© OpenStreetMap contributors · EOxCloudless / EOX · NASA GIBS</span>
       <span class="footer-spacer"></span>
       <span>图层 {{ layerDefinitions.filter((x) => layersVisible[x.key]).length }} / {{ layerDefinitions.length }}</span>
       <span class="status-divider"></span>
