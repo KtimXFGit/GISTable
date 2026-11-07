@@ -105,9 +105,46 @@ try {
   await page.locator('.full-list .compact-record').first().click()
   assert(await page.locator('.right-panel.detail-open').isVisible(), '移动端应能够查看与编辑对象')
   await page.screenshot({path:'browser-smoke-mobile.png'})
+  const toolsPage = await browser.newPage({viewport:{width:1440,height:900}})
+  const toolsErrors = []
+  toolsPage.on('pageerror', error => toolsErrors.push(error.message))
+  try {
+    await toolsPage.goto(url, {waitUntil:'domcontentloaded',timeout:45000})
+    await toolsPage.waitForFunction(() => document.querySelectorAll('.stats-row strong')[0]?.textContent?.trim() === '3', {timeout:15000})
+    const stage = toolsPage.locator('.map-element')
+    await toolsPage.locator('button[title="绘制线标注"]').click()
+    await stage.click({position:{x:210,y:230}})
+    await stage.click({position:{x:310,y:260}})
+    await stage.dblclick({position:{x:400,y:300}})
+    await toolsPage.waitForFunction(() => document.querySelectorAll('.stats-row strong')[2]?.textContent?.trim() === '1',{timeout:10000})
+
+    await toolsPage.locator('button[title="绘制面标注"]').click()
+    await stage.click({position:{x:210,y:210}})
+    await stage.click({position:{x:330,y:220}})
+    await stage.dblclick({position:{x:300,y:340}})
+    await toolsPage.waitForFunction(() => document.querySelectorAll('.stats-row strong')[2]?.textContent?.trim() === '2',{timeout:10000})
+
+    await toolsPage.locator('button[title="测量距离"]').click()
+    await stage.click({position:{x:180,y:260}})
+    await stage.dblclick({position:{x:300,y:320}})
+    assert.match(await toolsPage.locator('.measure-result').innerText(), /测量距离/)
+
+    await toolsPage.locator('button[title="测量面积"]').click()
+    await stage.click({position:{x:190,y:180}})
+    await stage.click({position:{x:300,y:200}})
+    await stage.dblclick({position:{x:270,y:340}})
+    assert.match(await toolsPage.locator('.measure-result').innerText(), /测量面积/)
+
+    toolsPage.once('dialog', dialog => dialog.accept())
+    await toolsPage.getByRole('button', {name:'清空标注'}).click()
+    await toolsPage.waitForFunction(() => document.querySelectorAll('.stats-row strong')[2]?.textContent?.trim() === '0',{timeout:10000})
+    assert.equal(toolsErrors.length,0,toolsErrors.join('\n'))
+  } finally {
+    await toolsPage.close()
+  }
   assert.equal(runtimeErrors.length, 0, runtimeErrors.join('\n'))
   console.log('Imagery provider HTTP response observations:', JSON.stringify(imageryResponses))
-  console.log('Browser GIS flow passed: layers, imagery, swipe, GeoJSON validation, import/export, editing, restore, mobile panels')
+  console.log('Browser GIS flow passed: layer controls, imagery/swipe, validated GeoJSON I/O, annotation persistence, mobile panels, line/polygon drawing, distance/area measurement, clearing')
 } catch (error) {
   await page.screenshot({ path: 'browser-smoke-failure.png', fullPage: true }).catch(() => {})
   console.error('Browser GIS flow failed:', error)
