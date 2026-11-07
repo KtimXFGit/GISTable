@@ -56,20 +56,21 @@ const measureSource = new VectorSource<Feature<Geometry>>()
 const highlightSource = new VectorSource<Feature<Geometry>>()
 const geojson = new GeoJSON()
 
-const baseLayer = new TileLayer({ source: new OSM(), visible: true })
+const baseLayer = new TileLayer({ className: 'gis-dark-basemap', source: new OSM(), visible: true })
 const roadLayer = new VectorLayer({
   source: roadSource,
   style: [
-    new Style({ stroke: new Stroke({ color: '#ffffff', width: 8 }) }),
-    new Style({ stroke: new Stroke({ color: '#157d8c', width: 4.5 }) }),
+    new Style({ stroke: new Stroke({ color: 'rgba(44,229,239,.22)', width: 13 }) }),
+    new Style({ stroke: new Stroke({ color: '#092637', width: 7 }) }),
+    new Style({ stroke: new Stroke({ color: '#56edf0', width: 3.2 }) }),
   ],
 })
 const facilityLayer = new VectorLayer({
   source: facilitySource,
   style: new Style({
     image: new CircleStyle({
-      radius: 7, fill: new Fill({ color: '#f8a24e' }),
-      stroke: new Stroke({ color: '#ffffff', width: 3 }),
+      radius: 7, fill: new Fill({ color: '#fac46d' }),
+      stroke: new Stroke({ color: '#163445', width: 3 }),
     }),
   }),
 })
@@ -77,19 +78,19 @@ const annotationLayer = new VectorLayer({
   source: annotationSource,
   style: new Style({
     image: new CircleStyle({
-      radius: 7, fill: new Fill({ color: '#206de0' }),
-      stroke: new Stroke({ color: '#ffffff', width: 2.5 }),
+      radius: 7, fill: new Fill({ color: '#9b8bff' }),
+      stroke: new Stroke({ color: '#0a2637', width: 2.5 }),
     }),
-    stroke: new Stroke({ color: '#256ee2', width: 3, lineDash: [8, 5] }),
-    fill: new Fill({ color: 'rgba(37,110,226,0.16)' }),
+    stroke: new Stroke({ color: '#8e9aff', width: 3, lineDash: [8, 5] }),
+    fill: new Fill({ color: 'rgba(132,127,255,0.16)' }),
   }),
 })
 const measureLayer = new VectorLayer({
   source: measureSource,
   style: new Style({
     image: new CircleStyle({ radius: 5, fill: new Fill({ color: '#ee7056' }) }),
-    stroke: new Stroke({ color: '#ed775c', width: 3, lineDash: [7, 7] }),
-    fill: new Fill({ color: 'rgba(237,119,92,0.12)' }),
+    stroke: new Stroke({ color: '#ffca71', width: 3, lineDash: [7, 7] }),
+    fill: new Fill({ color: 'rgba(255,202,113,0.12)' }),
   }),
 })
 const highlightLayer = new VectorLayer({
@@ -477,6 +478,11 @@ onBeforeUnmount(() => {
 
       <main class="map-stage">
         <div ref="mapElement" class="map-element" aria-label="可交互的空间地图"></div>
+        <div class="hud-reticle" aria-hidden="true"></div>
+        <div class="hud-corner hud-nw" aria-hidden="true"></div>
+        <div class="hud-corner hud-ne" aria-hidden="true"></div>
+        <div class="hud-corner hud-sw" aria-hidden="true"></div>
+        <div class="hud-corner hud-se" aria-hidden="true"></div>
         <div class="map-heading">
           <span class="map-heading-label"><span class="online-dot"></span> 公路空间信息</span>
           <span class="map-heading-sub">一张图综合视图</span>
