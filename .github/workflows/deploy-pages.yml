@@ -29,14 +29,6 @@ jobs:
           node-version: '22'
           cache: npm
           cache-dependency-path: frontend/package-lock.json
-      - name: Regenerate patched Vue dependency lockfile
-        working-directory: frontend
-        run: |
-          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
-          echo 'GISTABLE_LOCKFILE_BEGIN'
-          base64 -w 900 package-lock.json
-          echo
-          echo 'GISTABLE_LOCKFILE_END'
       - name: Install dependencies
         working-directory: frontend
         run: npm ci --no-audit --no-fund
