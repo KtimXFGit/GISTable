@@ -6,6 +6,9 @@ import Feature from 'ol/Feature'
 import TileLayer from 'ol/layer/Tile'
 import VectorLayer from 'ol/layer/Vector'
 import OSM from 'ol/source/OSM'
+import { getRenderPixel } from 'ol/render'
+import { imageCatalog, makeImagerySource, type ImageId } from '../repositories/imageryCatalog'
+import { localAnnotationRepository } from '../repositories/annotationDraftRepository'
 import VectorSource from 'ol/source/Vector'
 import GeoJSON from 'ol/format/GeoJSON'
 import Draw from 'ol/interaction/Draw'
@@ -31,7 +34,7 @@ type RecordItem = {
 
 const mapElement = ref<HTMLElement | null>(null)
 const fileInput = ref<HTMLInputElement | null>(null)
-const leftTab = ref<'layers' | 'objects'>('layers')
+const leftTab = ref<'layers' | 'objects' | 'imagery'>('layers')
 const query = ref('')
 const activeTool = ref<Tool>('browse')
 const selected = ref<RecordItem | null>(null)
@@ -42,6 +45,16 @@ const currentZoom = ref('12.0')
 const notice = ref('')
 const measureOutput = ref('')
 const dataLoaded = ref(false)
+const imagerySelected = ref<ImageId | 'street'>('sentinel2016')
+const compareEnabled = ref(false)
+const compareBefore = ref<ImageId>('modis2024')
+const compareAfter = ref<ImageId>('modis2025')
+const swipePosition = ref(50)
+const draftSaved = ref(false)
+const editName = ref('')
+const editCategory = ref('')
+const editDescription = ref('')
+const imageryLabel = computed(() => imageCatalog.find(x => x.id === imagerySelected.value)?.name || '道路地图')
 const layersVisible = ref<Record<LayerKey, boolean>>({
   basemap: true, roads: true, facilities: true, annotations: true,
 })
@@ -57,6 +70,8 @@ const highlightSource = new VectorSource<Feature<Geometry>>()
 const geojson = new GeoJSON()
 
 const baseLayer = new TileLayer({ className: 'gis-dark-basemap', source: new OSM(), visible: true })
+const historicalLayer = new TileLayer({ source: makeImagerySource('sentinel2016'), visible: true })
+const comparisonLayer = new TileLayer({ source: makeImagerySource('modis2025'), visible: false })
 const roadLayer = new VectorLayer({
   source: roadSource,
   style: [
@@ -127,6 +142,9 @@ let map: Map | null = null
 let drawing: Draw | null = null
 let modifying: Modify | null = null
 let toastTimer: number | undefined
+let draftTimer: number | undefined
+let draftsInitialized = false
+const selectedIsAnnotation = computed(() => Boolean(selected.value && annotationSource.hasFeature(selected.value.feature)))
 
 function showNotice(message: string) {
   notice.value = message
@@ -148,6 +166,9 @@ function asItem(feature: Feature<Geometry>): RecordItem {
 
 function selectFeature(feature: Feature<Geometry>) {
   selected.value = asItem(feature)
+  editName.value = String(feature.get('name') || '')
+  editCategory.value = String(feature.get('category') || '')
+  editDescription.value = String(feature.get('description') || '')
   highlightSource.clear()
   highlightSource.addFeature(feature.clone())
 }
@@ -179,7 +200,8 @@ function resetView() {
 
 function toggleLayer(key: LayerKey) {
   layersVisible.value[key] = !layersVisible.value[key]
-  layerMap[key].setVisible(layersVisible.value[key])
+  if (key === 'basemap') updateImageryLayers()
+  else layerMap[key].setVisible(layersVisible.value[key])
 }
 
 function changeOpacity(key: LayerKey, event: Event) {
@@ -190,6 +212,71 @@ function changeOpacity(key: LayerKey, event: Event) {
 
 function updateAnnotationCount() {
   annotationCount.value = annotationSource.getFeatures().length
+}
+
+function persistAnnotations() {
+  if (!draftsInitialized) return
+  if (draftTimer !== undefined) window.clearTimeout(draftTimer)
+  draftTimer = window.setTimeout(() => {
+    const data = geojson.writeFeaturesObject(annotationSource.getFeatures(), {
+      dataProjection: 'EPSG:4326', featureProjection: 'EPSG:3857',
+    })
+    draftSaved.value = localAnnotationRepository.save(data)
+  }, 250)
+}
+
+function updateImageryLayers() {
+  const enabled = layersVisible.value.basemap
+  baseLayer.setVisible(enabled)
+  historicalLayer.setVisible(enabled && (compareEnabled.value || imagerySelected.value !== 'street'))
+  comparisonLayer.setVisible(enabled && compareEnabled.value)
+  if (!enabled) return
+  if (compareEnabled.value) {
+    historicalLayer.setSource(makeImagerySource(compareBefore.value))
+    comparisonLayer.setSource(makeImagerySource(compareAfter.value))
+  } else if (imagerySelected.value !== 'street') {
+    historicalLayer.setSource(makeImagerySource(imagerySelected.value))
+  }
+  map?.render()
+}
+
+function changeImagery(value: string) {
+  imagerySelected.value = value as ImageId | 'street'
+  compareEnabled.value = false
+  updateImageryLayers()
+}
+
+function toggleComparison() {
+  compareEnabled.value = !compareEnabled.value
+  if (compareEnabled.value) {
+    leftTab.value = 'imagery'
+    setTool('browse')
+  }
+  updateImageryLayers()
+}
+
+function changeComparisonDate(which: 'before' | 'after', value: string) {
+  if (which === 'before') compareBefore.value = value as ImageId
+  else compareAfter.value = value as ImageId
+  updateImageryLayers()
+}
+
+function updateSwipe(event: Event) {
+  swipePosition.value = Number((event.target as HTMLInputElement).value)
+  map?.render()
+}
+
+function saveProperties() {
+  if (!selected.value || !selectedIsAnnotation.value) return
+  if (!editName.value.trim()) { showNotice('请输入标注名称'); return }
+  selected.value.feature.setProperties({
+    name: editName.value.trim().slice(0, 100),
+    category: editCategory.value.trim().slice(0, 50) || '地图标注',
+    description: editDescription.value.trim().slice(0, 300),
+  })
+  selectFeature(selected.value.feature)
+  persistAnnotations()
+  showNotice('标注属性已保存到本机')
 }
 
 function deactivateDrawing() {
@@ -274,6 +361,7 @@ async function importGeoJSON(event: Event) {
     }
     annotationSource.addFeatures(features)
     updateAnnotationCount()
+    persistAnnotations()
     const extent = annotationSource.getExtent()
     map?.getView().fit(extent, { duration: 450, maxZoom: 15, padding: [80, 80, 80, 80] })
     layersVisible.value.annotations = true
@@ -309,6 +397,7 @@ function removeSelected() {
   if (!selected.value || !annotationSource.hasFeature(selected.value.feature)) return
   annotationSource.removeFeature(selected.value.feature)
   updateAnnotationCount()
+  persistAnnotations()
   clearSelection()
   showNotice('标注已移除')
 }
@@ -317,6 +406,7 @@ function clearAnnotations() {
   if (!annotationSource.getFeatures().length) return
   if (!window.confirm('确定清空当前工作区内的所有地图标注吗？')) return
   annotationSource.clear()
+  persistAnnotations()
   measureSource.clear()
   updateAnnotationCount()
   clearSelection()
@@ -327,10 +417,51 @@ function clearAnnotations() {
 onMounted(async () => {
   map = new Map({
     target: mapElement.value!,
-    layers: [baseLayer, roadLayer, facilityLayer, annotationLayer, measureLayer, highlightLayer],
+    layers: [baseLayer, historicalLayer, comparisonLayer, roadLayer, facilityLayer, annotationLayer, measureLayer, highlightLayer],
     view: new View({ center: fromLonLat([104.075, 30.652]), zoom: 12, minZoom: 4, maxZoom: 19 }),
     controls: defaultControls({ zoom: false, rotate: false }).extend([new ScaleLine({ units: 'metric' })]),
   })
+  comparisonLayer.on('prerender', (event) => {
+    if (!compareEnabled.value || !map) return
+    const ctx = event.context as CanvasRenderingContext2D | undefined
+    const size = map.getSize()
+    if (!ctx || !size) return
+    const x = size[0] * swipePosition.value / 100
+    const ul = getRenderPixel(event, [x, 0])
+    const ur = getRenderPixel(event, [size[0], 0])
+    const br = getRenderPixel(event, [size[0], size[1]])
+    const bl = getRenderPixel(event, [x, size[1]])
+    ctx.save()
+    ctx.beginPath()
+    ctx.moveTo(ul[0], ul[1])
+    ctx.lineTo(ur[0], ur[1])
+    ctx.lineTo(br[0], br[1])
+    ctx.lineTo(bl[0], bl[1])
+    ctx.closePath()
+    ctx.clip()
+  })
+  comparisonLayer.on('postrender', (event) => {
+    if (compareEnabled.value) (event.context as CanvasRenderingContext2D | undefined)?.restore()
+  })
+  annotationSource.on('addfeature', persistAnnotations)
+  annotationSource.on('changefeature', persistAnnotations)
+  annotationSource.on('removefeature', persistAnnotations)
+  annotationSource.on('clear', persistAnnotations)
+  const savedDraft = localAnnotationRepository.load()
+  if (savedDraft) {
+    try {
+      const drafts = geojson.readFeatures(savedDraft as object, {
+        dataProjection: 'EPSG:4326', featureProjection: 'EPSG:3857',
+      }) as Feature<Geometry>[]
+      annotationSource.addFeatures(drafts)
+      updateAnnotationCount()
+      draftSaved.value = true
+    } catch {
+      showNotice('本机部分标注数据无法读取')
+    }
+  }
+  draftsInitialized = true
+  updateImageryLayers()
   modifying = new Modify({ source: annotationSource })
   map.addInteraction(modifying)
   map.on('pointermove', (event) => {
@@ -369,6 +500,13 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   deactivateDrawing()
   if (toastTimer !== undefined) window.clearTimeout(toastTimer)
+  if (draftTimer !== undefined) {
+    window.clearTimeout(draftTimer)
+    const draft = geojson.writeFeaturesObject(annotationSource.getFeatures(), {
+      dataProjection: 'EPSG:4326', featureProjection: 'EPSG:3857',
+    })
+    localAnnotationRepository.save(draft)
+  }
   map?.setTarget(undefined)
   map = null
 })
