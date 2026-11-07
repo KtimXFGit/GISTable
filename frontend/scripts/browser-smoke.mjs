@@ -6,11 +6,24 @@ const url = process.env.GISTABLE_URL || 'https://ktimxfgit.github.io/GISTable/'
 const browser = await chromium.launch({ channel: 'chrome', headless: true, args: ['--no-sandbox'] })
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } })
 const runtimeErrors = []
-const imageryResponses = { eox: { ok: 0, failed: 0 }, nasa: { ok: 0, failed: 0 } }
+const imageryResponses = { eox: { requested: 0, ok: 0, failed: 0, networkErrors: [] }, nasa: { requested: 0, ok: 0, failed: 0, networkErrors: [] } }
+function providerKey(url) {
+  return url.includes('tiles.maps.eox.at') ? 'eox'
+    : url.includes('gibs.earthdata.nasa.gov') ? 'nasa' : null
+}
+page.on('request', (request) => {
+  const key = providerKey(request.url())
+  if (key) imageryResponses[key].requested++
+})
+page.on('requestfailed', (request) => {
+  const key = providerKey(request.url())
+  if (key && imageryResponses[key].networkErrors.length < 8) {
+    imageryResponses[key].networkErrors.push(request.failure()?.errorText || 'network error')
+  }
+})
 page.on('pageerror', (error) => runtimeErrors.push(error.message))
 page.on('response', (response) => {
-  const key = response.url().includes('tiles.maps.eox.at') ? 'eox'
-    : response.url().includes('gibs.earthdata.nasa.gov') ? 'nasa' : null
+  const key = providerKey(response.url())
   if (key) imageryResponses[key][response.ok() ? 'ok' : 'failed']++
 })
 try {
@@ -27,6 +40,7 @@ try {
   await page.locator('#gis-imagery-source').selectOption('street')
   assert.match(await page.locator('.map-heading-sub').innerText(), /道路地图/)
   await page.locator('#gis-imagery-source').selectOption('modis2024')
+  await page.waitForTimeout(3000)
   await page.locator('.compare-switch').click()
   assert(await page.locator('.swipe-divider').isVisible())
   await page.locator('#gis-time-a').selectOption('sentinel2016')
@@ -36,6 +50,14 @@ try {
     input.dispatchEvent(new Event('input', { bubbles: true }))
   })
   assert.match(await page.locator('.swipe-divider').getAttribute('style'), /72%/)
+  await page.screenshot({path:'browser-smoke-comparison.png'})
+  const nasaProbe = 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_CorrectedReflectance_TrueColor/default/2024-06-15/GoogleMapsCompatible_Level9/3/6/3.jpg'
+  try {
+    const response = await page.request.get(nasaProbe, {timeout:15000})
+    console.log('NASA GIBS direct tile probe:', response.status(), response.headers()['content-type'])
+  } catch (error) {
+    console.log('NASA GIBS direct tile probe failed:', error instanceof Error ? error.message.slice(0,240) : String(error))
+  }
 
   await page.locator('.compare-switch').click()
   await page.locator('button[title="绘制点标注"]').click()
