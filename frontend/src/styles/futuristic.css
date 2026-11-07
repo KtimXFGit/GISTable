@@ -409,3 +409,40 @@ button:focus-visible, input:focus-visible { outline:2px solid #62edeb; outline-o
 @media(max-width:680px) {
   .raster-attribution { bottom:36px; right:6px; max-width:calc(100% - 12px); font-size:8px; }
 }
+
+
+/* Responsive GIS navigation: preserve access to layers and annotation attributes. */
+.mobile-panel-button {
+  display:none; border:1px solid rgba(94,200,224,.35); border-radius:7px;
+  min-width:35px; height:34px; color:#89e8ed; background:rgba(48,156,188,.13);
+  font-size:20px;
+}
+.imagery-error {
+  position:absolute; z-index:8 !important; top:96px; left:50%; transform:translateX(-50%);
+  display:flex; align-items:center; gap:12px; max-width:90%; padding:10px 12px;
+  border-radius:8px; border:1px solid rgba(246,182,97,.55); background:rgba(32,37,43,.97);
+  box-shadow:0 10px 24px rgba(0,0,0,.32); color:#ffdeb2; font-size:11px;
+}
+.imagery-error button { flex-shrink:0; border:1px solid #a27845; border-radius:6px; padding:6px 8px; background:rgba(255,204,119,.15); color:#ffe9c7; font-size:11px; }
+.mobile-scrim { display:none; }
+@media (max-width:990px) {
+  .app-shell { position:relative; }
+  .right-panel.detail-open {
+    display:flex; position:absolute; z-index:12;
+    top:70px; bottom:34px; right:0; width:min(330px,93vw);
+    overflow-y:auto; box-shadow:-14px 0 40px rgba(1,9,19,.65);
+    border-left:1px solid rgba(91,223,230,.40);
+  }
+}
+@media (max-width:680px) {
+  .mobile-panel-button { display:grid; place-items:center; flex:none; }
+  .left-panel.mobile-open {
+    display:flex; position:absolute; z-index:15;
+    top:60px; bottom:30px; left:0; width:min(300px,90vw);
+    box-shadow:13px 0 34px rgba(2,10,20,.65);
+    border-right:1px solid rgba(88,213,233,.40);
+  }
+  .right-panel.detail-open { top:60px; bottom:30px; }
+  .mobile-scrim { display:block; position:fixed; z-index:11; inset:60px 0 30px; background:rgba(1,9,18,.52); }
+  .imagery-error { top:120px; left:8px; right:8px; max-width:none; transform:none; }
+}
