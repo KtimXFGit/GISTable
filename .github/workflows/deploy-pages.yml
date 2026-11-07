@@ -35,6 +35,12 @@ jobs:
       - name: Check customer-facing copy
         working-directory: frontend
         run: npm run check:ui
+      - name: Install Vue type checker
+        working-directory: frontend
+        run: npm install --no-save --package-lock=false --no-audit --no-fund vue-tsc@3.3.14
+      - name: Strict Vue and TypeScript validation
+        working-directory: frontend
+        run: npx --no-install vue-tsc --noEmit -p tsconfig.json
       - name: Build WebGIS
         working-directory: frontend
         env:
