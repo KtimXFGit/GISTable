@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
 import Map from 'ol/Map'
 import View from 'ol/View'
 import Feature from 'ol/Feature'
@@ -37,8 +37,8 @@ const fileInput = ref<HTMLInputElement | null>(null)
 const leftTab = ref<'layers' | 'objects' | 'imagery'>('layers')
 const query = ref('')
 const activeTool = ref<Tool>('browse')
-const selected = ref<RecordItem | null>(null)
-const objectItems = ref<RecordItem[]>([])
+const selected = shallowRef<RecordItem | null>(null)
+const objectItems = shallowRef<RecordItem[]>([])
 const annotationCount = ref(0)
 const currentLonLat = ref('104.0670° E  30.6500° N')
 const currentZoom = ref('12.0')
