@@ -32,7 +32,7 @@ export function makeImagerySource(id: ImageId): TileSource {
   const date = id === 'modis2024' ? '2024-06-15' : '2025-06-15'
   return new XYZ({
     url: 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_CorrectedReflectance_TrueColor/default/' + date + '/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg',
-    maxZoom: 8,
+    maxZoom: 9,
     crossOrigin: 'anonymous',
     attributions: nasaAttribution,
     transition: 150,
