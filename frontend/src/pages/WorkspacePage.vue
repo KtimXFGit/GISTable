@@ -46,6 +46,8 @@ const currentZoom = ref('12.0')
 const notice = ref('')
 const measureOutput = ref('')
 const dataLoaded = ref(false)
+const mobileMenuOpen = ref(false)
+const detailDrawerOpen = ref(false)
 const imagerySelected = ref<ImageId | 'street'>('sentinel2016')
 const compareEnabled = ref(false)
 const compareBefore = ref<ImageId>('modis2024')
@@ -180,6 +182,7 @@ function asItem(feature: Feature<Geometry>): RecordItem {
 
 function selectFeature(feature: Feature<Geometry>) {
   selected.value = asItem(feature)
+  detailDrawerOpen.value = true
   editName.value = String(feature.get('name') || '')
   editCategory.value = String(feature.get('category') || '')
   editDescription.value = String(feature.get('description') || '')
@@ -188,6 +191,7 @@ function selectFeature(feature: Feature<Geometry>) {
 }
 
 function clearSelection() {
+  detailDrawerOpen.value = false
   selected.value = null
   highlightSource.clear()
 }
@@ -556,6 +560,7 @@ onBeforeUnmount(() => {
 <template>
   <div class="app-shell">
     <header class="header">
+      <button class="mobile-panel-button" aria-label="打开图层与影像菜单" @click="mobileMenuOpen = !mobileMenuOpen">☰</button>
       <div class="brand">
         <div class="brand-mark"><span class="brand-globe">◈</span></div>
         <div class="brand-copy">
@@ -577,7 +582,7 @@ onBeforeUnmount(() => {
     </header>
 
     <div class="content-grid">
-      <aside class="left-panel">
+      <aside class="left-panel" :class="{ 'mobile-open': mobileMenuOpen }">
         <div class="intro">
           <div class="eyebrow">GEOSPATIAL WORKSPACE <span class="tiny-line"></span></div>
           <h1>空间信息总览</h1>
@@ -772,7 +777,7 @@ onBeforeUnmount(() => {
         </div>
       </main>
 
-      <aside class="right-panel">
+      <aside class="right-panel" :class="{ 'detail-open': detailDrawerOpen && selected }">
         <div class="right-header">
           <div><div class="eyebrow">FEATURE INFORMATION</div><h2>对象详情</h2></div>
           <button v-if="selected" class="close-detail" title="关闭详情" @click="clearSelection">×</button>
@@ -831,6 +836,7 @@ onBeforeUnmount(() => {
       </aside>
     </div>
 
+    <div v-if="mobileMenuOpen" class="mobile-scrim" @click="mobileMenuOpen = false"></div>
     <footer class="status-bar">
       <span><i class="status-connected"></i> 地图服务</span>
       <span class="status-divider"></span>
