@@ -239,18 +239,23 @@ function updateAnnotationCount() {
   annotationRevision.value += 1
 }
 
+function flushAnnotations() {
+  if (!draftsInitialized) return
+  if (draftTimer !== undefined) window.clearTimeout(draftTimer)
+  draftTimer = undefined
+  const data = geojson.writeFeaturesObject(annotationSource.getFeatures(), {
+    dataProjection: 'EPSG:4326', featureProjection: 'EPSG:3857',
+  })
+  draftSaved.value = localAnnotationRepository.save(data)
+  if (!draftSaved.value) showNotice('本机空间不足或浏览器禁止存储，请导出 GeoJSON 保存')
+}
+
 function persistAnnotations() {
   if (!draftsInitialized) return
   draftSaved.value = false
   annotationRevision.value += 1
   if (draftTimer !== undefined) window.clearTimeout(draftTimer)
-  draftTimer = window.setTimeout(() => {
-    const data = geojson.writeFeaturesObject(annotationSource.getFeatures(), {
-      dataProjection: 'EPSG:4326', featureProjection: 'EPSG:3857',
-    })
-    draftSaved.value = localAnnotationRepository.save(data)
-    if (!draftSaved.value) showNotice('本机空间不足或浏览器禁止存储，请导出 GeoJSON 保存')
-  }, 250)
+  draftTimer = window.setTimeout(flushAnnotations, 250)
 }
 
 function makeTrackedImagery(id: ImageId) {
@@ -259,11 +264,6 @@ function makeTrackedImagery(id: ImageId) {
   source.on('tileloaderror', () => {
     if (historicalLayer.getSource() === source || comparisonLayer.getSource() === source) {
       imageryError.value = true
-    }
-  })
-  source.on('tileloadend', () => {
-    if (historicalLayer.getSource() === source || comparisonLayer.getSource() === source) {
-      imageryError.value = false
     }
   })
   return source
@@ -489,7 +489,13 @@ onMounted(async () => {
     if (compareEnabled.value) (event.context as CanvasRenderingContext2D | undefined)?.restore()
   })
   annotationSource.on('addfeature', persistAnnotations)
-  annotationSource.on('changefeature', persistAnnotations)
+  annotationSource.on('changefeature', (event) => {
+    persistAnnotations()
+    if (event.feature && selected.value?.feature === event.feature) {
+      highlightSource.clear()
+      highlightSource.addFeature(event.feature.clone())
+    }
+  })
   annotationSource.on('removefeature', persistAnnotations)
   annotationSource.on('clear', persistAnnotations)
   const savedDraft = localAnnotationRepository.load()
@@ -506,6 +512,7 @@ onMounted(async () => {
     }
   }
   draftsInitialized = true
+  window.addEventListener('pagehide', flushAnnotations)
   updateImageryLayers()
   modifying = new Modify({ source: annotationSource })
   map.addInteraction(modifying)
@@ -545,13 +552,8 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   deactivateDrawing()
   if (toastTimer !== undefined) window.clearTimeout(toastTimer)
-  if (draftTimer !== undefined) {
-    window.clearTimeout(draftTimer)
-    const draft = geojson.writeFeaturesObject(annotationSource.getFeatures(), {
-      dataProjection: 'EPSG:4326', featureProjection: 'EPSG:3857',
-    })
-    localAnnotationRepository.save(draft)
-  }
+  window.removeEventListener('pagehide', flushAnnotations)
+  flushAnnotations()
   map?.setTarget(undefined)
   map = null
 })
