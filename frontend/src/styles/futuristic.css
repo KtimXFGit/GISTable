@@ -397,3 +397,15 @@ button:focus-visible, input:focus-visible { outline:2px solid #62edeb; outline-o
   .imagery-swipe-labels { width:calc(100% - 20px); top:109px; }
   .swipe-bottom-slider { bottom:95px; width:60%; }
 }
+
+/* Credits remain legible while viewing licensed public satellite imagery. */
+.raster-attribution {
+  position:absolute; z-index:7 !important; right:12px; bottom:39px;
+  max-width:calc(100% - 290px); padding:5px 8px; border-radius:5px;
+  border:1px solid rgba(95,170,199,.21); background:rgba(8,29,44,.91);
+  color:#bed4de; font-size:9px; line-height:1.55; text-align:right;
+}
+.raster-attribution a { color:#7ae8eb; text-decoration:underline; text-underline-offset:2px; }
+@media(max-width:680px) {
+  .raster-attribution { bottom:36px; right:6px; max-width:calc(100% - 12px); font-size:8px; }
+}
