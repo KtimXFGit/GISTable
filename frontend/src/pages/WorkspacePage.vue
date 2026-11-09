@@ -48,6 +48,7 @@ const measureOutput = ref('')
 const dataLoaded = ref(false)
 const mobileMenuOpen = ref(false)
 const detailDrawerOpen = ref(false)
+const rightTab = ref<'details' | 'annotations'>('details')
 const imagerySelected = ref<ImageId | 'street'>('sentinel2016')
 const compareEnabled = ref(false)
 const compareBefore = ref<ImageId>('modis2024')
@@ -80,23 +81,23 @@ const measureSource = new VectorSource<Feature<Geometry>>()
 const highlightSource = new VectorSource<Feature<Geometry>>()
 const geojson = new GeoJSON()
 
-const baseLayer = new TileLayer({ className: 'gis-dark-basemap', source: new OSM(), visible: true })
+const baseLayer = new TileLayer({ className: 'gis-light-basemap', source: new OSM(), visible: true })
 const historicalLayer = new TileLayer({ source: makeImagerySource('sentinel2016'), visible: true })
 const comparisonLayer = new TileLayer({ source: makeImagerySource('modis2025'), visible: false })
 const roadLayer = new VectorLayer({
   source: roadSource,
   style: [
-    new Style({ stroke: new Stroke({ color: 'rgba(44,229,239,.22)', width: 13 }) }),
-    new Style({ stroke: new Stroke({ color: '#092637', width: 7 }) }),
-    new Style({ stroke: new Stroke({ color: '#56edf0', width: 3.2 }) }),
+    new Style({ stroke: new Stroke({ color: 'rgba(255,255,255,.95)', width: 9 }) }),
+    new Style({ stroke: new Stroke({ color: '#49a842', width: 5.6 }) }),
+    new Style({ stroke: new Stroke({ color: '#ecf584', width: 2.4 }) }),
   ],
 })
 const facilityLayer = new VectorLayer({
   source: facilitySource,
   style: new Style({
     image: new CircleStyle({
-      radius: 7, fill: new Fill({ color: '#fac46d' }),
-      stroke: new Stroke({ color: '#163445', width: 3 }),
+      radius: 7, fill: new Fill({ color: '#fda54a' }),
+      stroke: new Stroke({ color: '#ffffff', width: 3 }),
     }),
   }),
 })
@@ -104,11 +105,11 @@ const annotationLayer = new VectorLayer({
   source: annotationSource,
   style: new Style({
     image: new CircleStyle({
-      radius: 7, fill: new Fill({ color: '#9b8bff' }),
-      stroke: new Stroke({ color: '#0a2637', width: 2.5 }),
+      radius: 7, fill: new Fill({ color: '#2683eb' }),
+      stroke: new Stroke({ color: '#ffffff', width: 2.5 }),
     }),
-    stroke: new Stroke({ color: '#8e9aff', width: 3, lineDash: [8, 5] }),
-    fill: new Fill({ color: 'rgba(132,127,255,0.16)' }),
+    stroke: new Stroke({ color: '#2080de', width: 3, lineDash: [8, 5] }),
+    fill: new Fill({ color: 'rgba(28,131,231,0.18)' }),
   }),
 })
 const measureLayer = new VectorLayer({
@@ -133,7 +134,7 @@ const highlightLayer = new VectorLayer({
 
 const layerMap = { basemap: baseLayer, roads: roadLayer, facilities: facilityLayer, annotations: annotationLayer }
 const layerDefinitions: Array<{ key: LayerKey; name: string; desc: string; symbol: string; color: string }> = [
-  { key: 'basemap', name: '基础底图', desc: 'OpenStreetMap', symbol: '▦', color: '#8ea0b3' },
+  { key: 'basemap', name: '基础底图', desc: '卫星影像 / 道路底图', symbol: '▦', color: '#2884e2' },
   { key: 'roads', name: '公路线路', desc: '道路线形资料', symbol: '━', color: '#157d8c' },
   { key: 'facilities', name: '道路设施', desc: '空间位置与属性', symbol: '●', color: '#f2a04b' },
   { key: 'annotations', name: '地图标注', desc: '当前工作区图形', symbol: '◆', color: '#276de0' },
@@ -153,6 +154,10 @@ const filteredItems = computed(() => {
 })
 const roadCount = computed(() => objectItems.value.filter((item) => item.category === '道路线路').length)
 const facilityCount = computed(() => objectItems.value.length - roadCount.value)
+const annotationItems = computed(() => {
+  void annotationRevision.value
+  return annotationSource.getFeatures().map(asItem)
+})
 
 let map: Map | null = null
 let drawing: Draw | null = null
@@ -182,6 +187,7 @@ function asItem(feature: Feature<Geometry>): RecordItem {
 
 function selectFeature(feature: Feature<Geometry>) {
   selected.value = asItem(feature)
+  rightTab.value = 'details'
   detailDrawerOpen.value = true
   editName.value = String(feature.get('name') || '')
   editCategory.value = String(feature.get('category') || '')
@@ -205,6 +211,25 @@ function focusFeature(item: RecordItem) {
   })
 }
 
+function openSection(section: 'layers' | 'objects' | 'imagery') {
+  leftTab.value = section
+  mobileMenuOpen.value = false
+}
+
+function openAnnotationRecords() {
+  rightTab.value = 'annotations'
+  detailDrawerOpen.value = true
+  mobileMenuOpen.value = false
+}
+
+function toggleMapFullscreen() {
+  if (!document.fullscreenElement) {
+    void document.documentElement.requestFullscreen?.().catch(() => showNotice('浏览器未允许全屏显示'))
+  } else {
+    void document.exitFullscreen?.().catch(() => showNotice('无法退出全屏显示'))
+  }
+}
+
 function zoomBy(delta: number) {
   if (!map) return
   const view = map.getView()
@@ -212,6 +237,8 @@ function zoomBy(delta: number) {
 }
 
 function resetView() {
+  leftTab.value = 'layers'
+  mobileMenuOpen.value = false
   clearSelection()
   map?.getView().animate({ center: fromLonLat([104.075, 30.652]), zoom: 12, duration: 450 })
 }
@@ -572,28 +599,38 @@ onBeforeUnmount(() => {
       </div>
       <div class="header-divider"></div>
       <nav class="primary-nav" aria-label="主要导航">
-        <button class="nav-link active" @click="resetView"><span class="nav-symbol">▧</span> 一张图</button>
-        <button class="nav-link" @click="leftTab = 'imagery'"><span class="nav-symbol">◈</span> 遥感影像</button>
-        <button class="nav-link" :class="{ active: compareEnabled }" @click="toggleComparison"><span class="nav-symbol">◫</span> 影像卷帘</button>
+        <button class="nav-link" :class="{ active: leftTab === 'layers' && !compareEnabled }" @click="resetView"><span class="nav-symbol">▧</span> 综合地图</button>
+        <button class="nav-link" :class="{ active: leftTab === 'imagery' && !compareEnabled }" @click="openSection('imagery')"><span class="nav-symbol">◈</span> 遥感影像</button>
+        <button class="nav-link" :class="{ active: compareEnabled }" @click="toggleComparison"><span class="nav-symbol">◫</span> 影像对比</button>
+        <button class="nav-link" :class="{ active: leftTab === 'objects' && !compareEnabled }" @click="openSection('objects')"><span class="nav-symbol">⌕</span> 空间查询</button>
       </nav>
       <div class="header-spacer"></div>
-      <span class="header-scope"><span class="scope-dot"></span> 空间信息工作台</span>
-      <button class="header-button" @click="fileInput?.click()"><span>↥</span> 导入数据</button>
+      <button class="header-button header-data-button" @click="fileInput?.click()"><span>↥</span> 导入 GeoJSON</button>
       <button v-if="annotationCount" class="header-button primary" @click="exportGeoJSON"><span>⇩</span> 导出标注</button>
       <div class="avatar" title="空间工作台">GIS</div>
     </header>
 
     <div class="content-grid">
+      <nav class="workspace-rail" aria-label="工作台功能导航">
+        <div class="rail-group">
+          <button class="rail-link" :class="{ selected: leftTab === 'layers' && !compareEnabled }"
+            @click="resetView" title="地图工作台"><span class="rail-icon">▧</span><span>地图工作台</span></button>
+          <button class="rail-link" :class="{ selected: leftTab === 'imagery' && !compareEnabled }"
+            @click="openSection('imagery')" title="影像浏览"><span class="rail-icon">▣</span><span>影像浏览</span></button>
+          <button class="rail-link" :class="{ selected: compareEnabled }"
+            @click="toggleComparison" title="影像对比"><span class="rail-icon">◫</span><span>影像对比</span></button>
+          <button class="rail-link" :class="{ selected: leftTab === 'objects' && !compareEnabled }"
+            @click="openSection('objects')" title="空间查询"><span class="rail-icon">⌕</span><span>空间查询</span></button>
+          <button class="rail-link" @click="openAnnotationRecords" title="标注管理"><span class="rail-icon">⬡</span><span>标注管理</span></button>
+          <button class="rail-link" @click="fileInput?.click()" title="数据导入"><span class="rail-icon">↥</span><span>数据导入</span></button>
+        </div>
+        <div class="rail-bottom"><span class="rail-bottom-mark">◈</span><span>空间工作台</span></div>
+      </nav>
       <aside class="left-panel" :class="{ 'mobile-open': mobileMenuOpen }">
         <div class="intro">
-          <div class="eyebrow">GEOSPATIAL WORKSPACE <span class="tiny-line"></span></div>
-          <h1>空间信息总览</h1>
-          <p>道路、设施与地图标注的统一空间工作区</p>
-          <div class="stats-row">
-            <div><strong>{{ roadCount }}</strong><span>道路线路</span></div>
-            <div><strong>{{ facilityCount }}</strong><span>设施对象</span></div>
-            <div><strong>{{ annotationCount }}</strong><span>地图标注</span></div>
-          </div>
+          <div class="eyebrow">SPATIAL LAYERS <span class="tiny-line"></span></div>
+          <h1>图层管理</h1>
+          <p>管理影像、道路和工作区标注图层</p>
         </div>
 
         <div class="left-tabs">
