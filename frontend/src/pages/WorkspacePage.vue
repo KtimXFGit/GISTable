@@ -20,6 +20,7 @@ import { getArea, getLength } from 'ol/sphere'
 import { Circle as CircleStyle, Fill, Stroke, Style, Text } from 'ol/style'
 import { getCenter } from 'ol/extent'
 import { localTaskRepository, type LocalTask, type TaskState } from '../repositories/localTaskRepository'
+import UiIcon from '../components/UiIcon.vue'
 import type Geometry from 'ol/geom/Geometry'
 import { staticFeatureRepository } from '../repositories/featureRepository'
 
@@ -808,18 +809,18 @@ onBeforeUnmount(() => {
     <header class="header command-header">
       <button class="mobile-panel-button" aria-label="打开图层与影像菜单" @click="mobileMenuOpen = !mobileMenuOpen; detailDrawerOpen = false">☰</button>
       <div class="brand command-brand">
-        <div class="brand-mark"><span class="brand-globe">◈</span></div>
+        <div class="brand-mark"><UiIcon name="mountain" :size="34" /></div>
         <div class="brand-copy">
           <span class="brand-name">GISTable</span>
           <span class="brand-sub">公路遥感监测与巡查执法管理平台</span>
         </div>
       </div>
       <nav class="primary-nav" aria-label="主要导航">
-        <button class="nav-link active" @click="resetView"><span>⌂</span> 综合指挥</button>
-        <button class="nav-link" @click="openSection('imagery')"><span>◈</span> 遥感监测</button>
-        <button class="nav-link" @click="setDashboardPanel('tasks')"><span>▣</span> 巡查管理</button>
-        <button class="nav-link" @click="setDashboardPanel('stats')"><span>▥</span> 数据分析</button>
-        <button class="nav-link" @click="layerGroup = 'topic'; openSection('layers')"><span>▱</span> 专题图层</button>
+        <button class="nav-link active" @click="resetView"><UiIcon name="home" :size="19" /> 综合指挥</button>
+        <button class="nav-link" @click="openSection('imagery')"><UiIcon name="satellite" :size="19" /> 遥感监测</button>
+        <button class="nav-link" @click="setDashboardPanel('tasks')"><UiIcon name="clipboard" :size="19" /> 巡查管理</button>
+        <button class="nav-link" @click="setDashboardPanel('stats')"><UiIcon name="chart" :size="19" /> 数据分析</button>
+        <button class="nav-link" @click="layerGroup = 'topic'; openSection('layers')"><UiIcon name="layers" :size="19" /> 专题图层</button>
       </nav>
       <div class="header-spacer"></div>
       <span class="header-scope"><i class="scope-dot"></i> 空间工作区</span>
@@ -829,7 +830,7 @@ onBeforeUnmount(() => {
     <div class="content-grid">
       <aside class="left-panel" :class="{ 'mobile-open': mobileMenuOpen }">
         <section class="command-section layer-control-section">
-          <header class="panel-title"><span class="panel-icon">▱</span><strong>图层控制</strong><small>{{ layerDefinitions.filter(l => layersVisible[l.key]).length }} / {{ layerDefinitions.length }}</small></header>
+          <header class="panel-title"><span class="panel-icon"><UiIcon name="layers" :size="21" /></span><strong>图层控制</strong><small>{{ layerDefinitions.filter(l => layersVisible[l.key]).length }} / {{ layerDefinitions.length }}</small></header>
           <div class="section-inner">
             <div class="left-tabs">
               <button :class="{ selected: layerGroup === 'base' }" @click="layerGroup = 'base'; leftTab = 'layers'">基础图层</button>
@@ -871,14 +872,14 @@ onBeforeUnmount(() => {
               </div>
             </div>
             <div class="layer-bottom-actions">
-              <button @click="leftTab = 'objects'">⌕ 空间查询</button>
-              <button @click="leftTab = 'layers'; layerGroup = 'base'">▱ 图层列表</button>
+              <button @click="leftTab = 'objects'"><UiIcon name="search" :size="16" /> 空间查询</button>
+              <button @click="leftTab = 'layers'; layerGroup = 'base'"><UiIcon name="layers" :size="16" /> 图层列表</button>
             </div>
           </div>
         </section>
 
         <section class="command-section imagery-section">
-          <header class="panel-title"><span class="panel-icon">⌖</span><strong>影像与时相</strong><small>IMAGE</small></header>
+          <header class="panel-title"><span class="panel-icon"><UiIcon name="satellite" :size="21" /></span><strong>影像与时相</strong><small>IMAGE</small></header>
           <div class="section-inner">
             <label class="form-row" for="gis-imagery-source"><span>影像源</span>
               <select id="gis-imagery-source" class="imagery-select" :value="imagerySelected"
@@ -908,17 +909,17 @@ onBeforeUnmount(() => {
             <div class="image-preview-pair" @click="!compareEnabled && toggleComparison()" role="button" tabindex="0" @keydown.enter="!compareEnabled && toggleComparison()">
               <div class="image-preview before" :style="{ backgroundImage: 'linear-gradient(135deg,rgba(6,42,56,.08),rgba(6,27,44,.24)),url(' + imageryPreviewUrl(compareBefore) + ')' }"><span>{{ compareBefore === 'sentinel2016' ? '2016' : compareBefore === 'modis2024' ? '2024' : '2025' }}</span></div>
               <div class="image-preview after" :style="{ backgroundImage: 'linear-gradient(135deg,rgba(6,42,56,.08),rgba(6,27,44,.24)),url(' + imageryPreviewUrl(compareAfter) + ')' }"><span>{{ compareAfter === 'sentinel2016' ? '2016' : compareAfter === 'modis2024' ? '2024' : '2025' }}</span></div>
-              <span class="preview-slider-handle">◀▶</span>
+              <span class="preview-slider-handle"><UiIcon name="swap" :size="16" /></span>
             </div>
           </div>
         </section>
 
         <section class="command-section change-section">
-          <header class="panel-title"><span class="panel-icon">◈</span><strong>变化线索</strong><small>{{ clueCount }} 个</small></header>
+          <header class="panel-title"><span class="panel-icon"><UiIcon name="radar" :size="21" /></span><strong>变化线索</strong><small>{{ clueCount }} 个</small></header>
           <div class="section-inner change-inner">
-            <button class="detect-button" @click="beginClueDraw">⬡ 标绘变化区域</button>
+            <button class="detect-button" @click="beginClueDraw"><UiIcon name="scan" :size="20" /> 标绘变化区域</button>
             <label class="toggle-line"><span>变化区域显示</span><input type="checkbox" :checked="showClues" @change="toggleClueLayer" /></label>
-            <div class="change-hint"><span>◉</span> 新增区域将进入线索统计与最新记录</div>
+            <div class="change-hint"><UiIcon name="information" :size="16" /> 新增区域将进入线索统计与最新记录</div>
           </div>
         </section>
       </aside>
@@ -927,23 +928,23 @@ onBeforeUnmount(() => {
         <main class="map-stage">
           <div ref="mapElement" class="map-element" aria-label="可交互的空间地图"></div>
           <div class="map-grid-overlay" aria-hidden="true"></div>
-          <div class="map-compass" aria-hidden="true"><b>N</b><span>✧</span></div>
+          <div class="map-compass" aria-hidden="true"><b>N</b><UiIcon name="crosshair" :size="36" /></div>
           <div class="map-heading"><span class="map-heading-label">空间信息地图</span><span class="map-heading-sub">{{ compareEnabled ? '多时相影像卷帘' : imageryLabel }}</span></div>
           <div class="map-coord-chip"><span>经度：{{ currentLonLat.split('  ')[0] }}</span><span>纬度：{{ currentLonLat.split('  ')[1] }}</span><span>级别：{{ currentZoom }}</span></div>
 
           <div class="map-toolbar" aria-label="地图工具">
-            <button :class="{ toolactive: activeTool === 'browse' }" title="选择对象" @click="setTool('browse')"><span>↖</span><small>选择</small></button>
-            <button :class="{ toolactive: activeTool === 'point' }" title="绘制点标注" @click="setTool('point')"><span>⌖</span><small>点标注</small></button>
-            <button :class="{ toolactive: activeTool === 'line' }" title="绘制线标注" @click="setTool('line')"><span>⌁</span><small>线标注</small></button>
-            <button :class="{ toolactive: activeTool === 'polygon' }" title="绘制面标注" @click="setTool('polygon')"><span>⬡</span><small>面标注</small></button>
-            <button :class="{ toolactive: activeTool === 'length' }" title="测量距离" @click="setTool('length')"><span>⌁</span><small>测距</small></button>
-            <button :class="{ toolactive: activeTool === 'area' }" title="测量面积" @click="setTool('area')"><span>▱</span><small>测面</small></button>
+            <button :class="{ toolactive: activeTool === 'browse' }" title="选择对象" @click="setTool('browse')"><UiIcon name="cursor" :size="23" /><small>选择</small></button>
+            <button :class="{ toolactive: activeTool === 'point' }" title="绘制点标注" @click="setTool('point')"><UiIcon name="point" :size="23" /><small>点标注</small></button>
+            <button :class="{ toolactive: activeTool === 'line' }" title="绘制线标注" @click="setTool('line')"><UiIcon name="route" :size="23" /><small>线标注</small></button>
+            <button :class="{ toolactive: activeTool === 'polygon' }" title="绘制面标注" @click="setTool('polygon')"><UiIcon name="polygon" :size="23" /><small>面标注</small></button>
+            <button :class="{ toolactive: activeTool === 'length' }" title="测量距离" @click="setTool('length')"><UiIcon name="ruler" :size="23" /><small>测距</small></button>
+            <button :class="{ toolactive: activeTool === 'area' }" title="测量面积" @click="setTool('area')"><UiIcon name="area" :size="23" /><small>测面</small></button>
             <span class="toolbar-divider"></span>
-            <button title="撤销" :disabled="!canUndo" @click="applyHistory(-1)"><span>↶</span><small>撤销</small></button>
-            <button title="重做" :disabled="!canRedo" @click="applyHistory(1)"><span>↷</span><small>重做</small></button>
-            <button title="清空标注" :disabled="!annotationCount" @click="clearAnnotations"><span>⌫</span><small>清除</small></button>
-            <button title="导入 GeoJSON" @click="fileInput?.click()"><span>↥</span><small>导入</small></button>
-            <button title="导出 GeoJSON" @click="exportGeoJSON"><span>↧</span><small>导出</small></button>
+            <button title="撤销" :disabled="!canUndo" @click="applyHistory(-1)"><UiIcon name="undo" :size="23" /><small>撤销</small></button>
+            <button title="重做" :disabled="!canRedo" @click="applyHistory(1)"><UiIcon name="redo" :size="23" /><small>重做</small></button>
+            <button title="清空标注" :disabled="!annotationCount" @click="clearAnnotations"><UiIcon name="trash" :size="23" /><small>清除</small></button>
+            <button title="导入 GeoJSON" @click="fileInput?.click()"><UiIcon name="upload" :size="23" /><small>导入</small></button>
+            <button title="导出 GeoJSON" @click="exportGeoJSON"><UiIcon name="download" :size="23" /><small>导出</small></button>
           </div>
 
           <div class="map-target" aria-hidden="true"><span></span></div>
@@ -952,10 +953,10 @@ onBeforeUnmount(() => {
           <div v-if="compareEnabled" class="swipe-bottom-slider"><input type="range" min="5" max="95" :value="swipePosition" @input="updateSwipe" aria-label="调整卷帘对比位置" /></div>
           <div v-if="imageryError && layersVisible.basemap" class="imagery-error" role="alert"><span>当前影像部分区域加载失败</span><button @click="changeImagery('street')">切换道路底图</button></div>
           <div class="zoom-toolbar">
-            <button title="切换全屏" @click="toggleMapFullscreen">⛶</button>
-            <button title="恢复初始视野" @click="resetView">⌂</button>
-            <button title="放大地图" @click="zoomBy(1)">+</button>
-            <button title="缩小地图" @click="zoomBy(-1)">−</button>
+            <button title="切换全屏" @click="toggleMapFullscreen"><UiIcon name="fullscreen" :size="21" /></button>
+            <button title="恢复初始视野" @click="resetView"><UiIcon name="home" :size="21" /></button>
+            <button title="放大地图" @click="zoomBy(1)"><UiIcon name="plus" :size="21" /></button>
+            <button title="缩小地图" @click="zoomBy(-1)"><UiIcon name="minus" :size="21" /></button>
           </div>
           <div v-if="activeTool !== 'browse'" class="draw-hint"><i class="pulse"></i>
             {{ activeTool === 'point' ? '单击地图放置标注点' : activeTool === 'line' || activeTool === 'length' ? '单击绘制节点，双击结束' : '单击绘制边界，双击结束' }}
@@ -969,7 +970,7 @@ onBeforeUnmount(() => {
         </main>
 
         <section class="latest-panel">
-          <header class="panel-title"><span class="panel-icon">♧</span><strong>{{ newestCardsTitle }}</strong><small>{{ latestCards.length }} 条</small><button class="latest-more" @click="openAnnotationRecords">查看全部 ›</button></header>
+          <header class="panel-title"><span class="panel-icon"><UiIcon name="activity" :size="21" /></span><strong>{{ newestCardsTitle }}</strong><small>{{ latestCards.length }} 条</small><button class="latest-more" @click="openAnnotationRecords">查看全部 ›</button></header>
           <div class="latest-card-track">
             <button v-for="item in latestCards" :key="item.id" class="latest-card" :class="{ selected: selected?.id === item.id }" @click="focusFeature(item)">
               <div class="latest-thumb" :style="{ backgroundImage: 'linear-gradient(145deg,rgba(5,32,51,.06),rgba(6,26,45,.3)),url(' + spatialPreview(item) + ')' }"><span>⌖</span></div>
@@ -982,7 +983,7 @@ onBeforeUnmount(() => {
 
       <aside class="right-panel" :class="{ 'detail-open': detailDrawerOpen }">
         <section class="command-section detail-section">
-          <header class="panel-title"><span class="panel-icon">♙</span><strong>对象详情</strong></header>
+          <header class="panel-title"><span class="panel-icon"><UiIcon name="point" :size="21" /></span><strong>对象详情</strong></header>
           <div class="right-tabs"><button :class="{ selected: rightTab === 'details' }" @click="rightTab = 'details'">对象详情</button><button :class="{ selected: rightTab === 'annotations' }" @click="rightTab = 'annotations'">标注记录</button><button v-if="rightTab === 'tasks' || rightTab === 'stats'" class="selected" @click="rightTab = 'details'">返回详情</button></div>
           <div class="detail-body">
             <template v-if="rightTab === 'details' || rightTab === 'stats'">
@@ -1006,7 +1007,7 @@ onBeforeUnmount(() => {
                 </div>
                 <div class="detail-buttons"><button @click="focusFeature(selected!)">⌖ 定位</button><button v-if="selectedIsAnnotation" @click="saveProperties">✎ 编辑保存</button><button @click="createTaskForSelected">➤ 创建任务</button></div>
               </template>
-              <div v-else class="detail-placeholder"><span>⌖</span><strong>选择地图对象</strong><small>点击线路、设施或变化区域查看详情</small></div>
+              <div v-else class="detail-placeholder"><UiIcon name="point" :size="30" /><strong>选择地图对象</strong><small>点击线路、设施或变化区域查看详情</small></div>
             </template>
             <template v-else-if="rightTab === 'annotations'">
               <div class="compact-list full-list annotation-records">
@@ -1030,12 +1031,12 @@ onBeforeUnmount(() => {
         </section>
 
         <section class="command-section statistics-section">
-          <header class="panel-title"><span class="panel-icon">▥</span><strong>监测统计</strong><div class="period-tabs"><button :class="{ selected: selectedPeriod === '7' }" @click="selectedPeriod = '7'">近7天</button><button :class="{ selected: selectedPeriod === '30' }" @click="selectedPeriod = '30'">近30天</button><button :class="{ selected: selectedPeriod === 'all' }" @click="selectedPeriod = 'all'">全部</button></div></header>
+          <header class="panel-title"><span class="panel-icon"><UiIcon name="chart" :size="21" /></span><strong>监测统计</strong><div class="period-tabs"><button :class="{ selected: selectedPeriod === '7' }" @click="selectedPeriod = '7'">近7天</button><button :class="{ selected: selectedPeriod === '30' }" @click="selectedPeriod = '30'">近30天</button><button :class="{ selected: selectedPeriod === 'all' }" @click="selectedPeriod = 'all'">全部</button></div></header>
           <div class="stats-row">
-            <div><span>◈</span><strong>{{ roadCount }}</strong><small>道路线路</small></div>
-            <div><span>▣</span><strong>{{ facilityCount }}</strong><small>设施对象</small></div>
-            <div><span>⬡</span><strong>{{ annotationCount }}</strong><small>地图标注</small></div>
-            <div><span>✓</span><strong>{{ taskCounts.done }}</strong><small>任务完成</small></div>
+            <div><UiIcon name="route" :size="23" /><strong>{{ roadCount }}</strong><small>道路线路</small></div>
+            <div><UiIcon name="point" :size="23" /><strong>{{ facilityCount }}</strong><small>设施对象</small></div>
+            <div><UiIcon name="polygon" :size="23" /><strong>{{ annotationCount }}</strong><small>地图标注</small></div>
+            <div><UiIcon name="checkCircle" :size="23" /><strong>{{ taskCounts.done }}</strong><small>任务完成</small></div>
           </div>
           <div class="stats-chart-row">
             <div class="donut" :style="{ background: chartBackground }"><div class="donut-center"><strong>{{ totalSpatialRecords }}</strong><small>空间对象</small></div></div>
@@ -1047,7 +1048,7 @@ onBeforeUnmount(() => {
         </section>
 
         <section class="command-section tasks-section">
-          <header class="panel-title"><span class="panel-icon">▣</span><strong>巡查任务进度</strong><small>本机工作区</small></header>
+          <header class="panel-title"><span class="panel-icon"><UiIcon name="clipboard" :size="21" /></span><strong>巡查任务进度</strong><small>本机工作区</small></header>
           <div class="progress-line"><div class="progress-track"><div :style="{ width: taskProgress + '%' }"></div></div><strong>完成率 {{ taskProgress }}%</strong></div>
           <div class="task-status-grid">
             <button @click="setDashboardPanel('tasks')"><strong>{{ taskCounts.pending }}</strong><small>待派发</small></button>
