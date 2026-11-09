@@ -163,6 +163,33 @@ try {
   } finally {
     await toolsPage.close()
   }
+  const workflowPage = await browser.newPage({viewport:{width:1440,height:900}})
+  const workflowErrors = []
+  workflowPage.on('pageerror', error => workflowErrors.push(error.message))
+  try {
+    await workflowPage.goto(url,{waitUntil:'domcontentloaded',timeout:45000})
+    await workflowPage.waitForFunction(() => document.querySelector('.stats-row strong')?.textContent?.trim()==='3',{timeout:15000})
+    await workflowPage.locator('.detect-button').click()
+    const workingMap = workflowPage.locator('.map-element')
+    await workingMap.click({position:{x:260,y:225}})
+    await workingMap.click({position:{x:410,y:230}})
+    await workingMap.dblclick({position:{x:350,y:345}})
+    await workflowPage.waitForFunction(() => document.querySelectorAll('.stats-row strong')[2]?.textContent?.trim()==='1',{timeout:12000})
+    assert.match(await workflowPage.locator('.latest-panel .panel-title strong').innerText(),/最新监测线索/)
+    assert.equal(await workflowPage.locator('.latest-card-track .latest-card').count(),1)
+    await workflowPage.getByRole('button',{name:/创建任务/}).click()
+    await workflowPage.getByRole('button',{name:'开始巡查'}).click()
+    await workflowPage.getByRole('button',{name:'提交核查'}).click()
+    await workflowPage.getByRole('button',{name:'完成任务'}).click()
+    await workflowPage.waitForFunction(() => document.querySelector('.progress-line strong')?.textContent?.includes('100%'),{timeout:8000})
+    await workflowPage.reload({waitUntil:'domcontentloaded'})
+    await workflowPage.waitForFunction(() => document.querySelectorAll('.stats-row strong')[3]?.textContent?.trim()==='1',{timeout:12000})
+    assert.match(await workflowPage.locator('.progress-line strong').innerText(),/100%/)
+    assert.equal(workflowErrors.length,0,workflowErrors.join('\n'))
+    console.log('Local workflow passed: manual change polygon, dashboard clue card, patrol task lifecycle and reload persistence')
+  } finally {
+    await workflowPage.close()
+  }
   assert.equal(runtimeErrors.length, 0, runtimeErrors.join('\n'))
   console.log('Imagery provider HTTP response observations:', JSON.stringify(imageryResponses))
   console.log('Browser GIS command center passed: dashboard geometry, charts, imagery swipe, GeoJSON, annotation persistence, mobile and GIS drawing tools')
