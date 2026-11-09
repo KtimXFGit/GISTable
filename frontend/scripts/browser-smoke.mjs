@@ -72,6 +72,22 @@ try {
     assert(visual.kpi.font >= 23, 'KPI font too small at '+width)
     assert(visual.iconCount >= 20, 'SVG icon family is not rendered')
     assert(visual.documentWidth <= width + 2, 'Unexpected horizontal document overflow at '+width)
+    const structural = await page.evaluate(() => {
+      const toolbar = document.querySelector('.map-toolbar')
+      const buttons = toolbar?.querySelectorAll('button')
+      const last = buttons?.[buttons.length-1]?.getBoundingClientRect()
+      const bar = toolbar?.getBoundingClientRect()
+      const overflows = ['.layer-control-section .section-inner','.imagery-section .section-inner','.change-section .section-inner','.detail-section .detail-body'].map(q => {
+        const e = document.querySelector(q)
+        return e ? {name:q,excess:e.scrollHeight-e.clientHeight} : {name:q,excess:-1}
+      })
+      return {toolbarFits:!!last && !!bar && last.right <= bar.right + 1 && last.left >= bar.left,overflows}
+    })
+    console.log('Layout audit',width,height,JSON.stringify(structural))
+    assert(structural.toolbarFits, 'GIS toolbar must show ALL actions at '+width)
+    if (width >= 1920) for (const item of structural.overflows) {
+      assert(item.excess <= 7, 'Visible panel overflows '+item.name+' by '+item.excess+'px at '+width)
+    }
     await page.screenshot({path:filename})
   }
   await page.setViewportSize({width:1440,height:900})
