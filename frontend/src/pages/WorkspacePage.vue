@@ -17,7 +17,9 @@ import Modify from 'ol/interaction/Modify'
 import { defaults as defaultControls, ScaleLine } from 'ol/control'
 import { fromLonLat, toLonLat } from 'ol/proj'
 import { getArea, getLength } from 'ol/sphere'
-import { Circle as CircleStyle, Fill, Stroke, Style } from 'ol/style'
+import { Circle as CircleStyle, Fill, Stroke, Style, Text } from 'ol/style'
+import { getCenter } from 'ol/extent'
+import { localTaskRepository, type LocalTask, type TaskState } from '../repositories/localTaskRepository'
 import type Geometry from 'ol/geom/Geometry'
 import { staticFeatureRepository } from '../repositories/featureRepository'
 
@@ -48,7 +50,7 @@ const measureOutput = ref('')
 const dataLoaded = ref(false)
 const mobileMenuOpen = ref(false)
 const detailDrawerOpen = ref(false)
-const rightTab = ref<'details' | 'annotations'>('details')
+const rightTab = ref<'details' | 'annotations' | 'tasks' | 'stats'>('details')
 const imagerySelected = ref<ImageId | 'street'>('sentinel2016')
 const compareEnabled = ref(false)
 const compareBefore = ref<ImageId>('modis2024')
@@ -57,6 +59,13 @@ const swipePosition = ref(50)
 const draftSaved = ref(false)
 const annotationRevision = ref(0)
 const imageryError = ref(false)
+const layerGroup = ref<'base' | 'business' | 'topic'>('base')
+const showClues = ref(true)
+const drawAsClue = ref(false)
+const selectedPeriod = ref<'7' | '30' | 'all'>('all')
+const tasks = ref<LocalTask[]>([])
+const analysisVisible = ref(true)
+const inspectionVisible = ref(true)
 let annotationSerial = 0
 const editName = ref('')
 const editCategory = ref('')
@@ -86,31 +95,47 @@ const historicalLayer = new TileLayer({ source: makeImagerySource('sentinel2016'
 const comparisonLayer = new TileLayer({ source: makeImagerySource('modis2025'), visible: false })
 const roadLayer = new VectorLayer({
   source: roadSource,
-  style: [
-    new Style({ stroke: new Stroke({ color: 'rgba(255,255,255,.95)', width: 9 }) }),
-    new Style({ stroke: new Stroke({ color: '#49a842', width: 5.6 }) }),
-    new Style({ stroke: new Stroke({ color: '#ecf584', width: 2.4 }) }),
+  style: (feature) => [
+    new Style({ stroke: new Stroke({ color: 'rgba(20,219,250,.22)', width: 18 }) }),
+    new Style({ stroke: new Stroke({ color: 'rgba(10,226,253,.53)', width: 10 }) }),
+    new Style({ stroke: new Stroke({ color: '#031f38', width: 6 }) }),
+    new Style({ stroke: new Stroke({ color: '#73f2ff', width: 2.6 }) }),
+    new Style({ text: new Text({
+      text: String(feature.get('name') || ''), placement: 'line',
+      fill: new Fill({color:'#e9ffff'}), stroke: new Stroke({color:'#08213a',width:4}),
+      font:'bold 12px sans-serif', overflow:false,
+    }) }),
   ],
 })
 const facilityLayer = new VectorLayer({
   source: facilitySource,
-  style: new Style({
+  style: (feature) => new Style({
     image: new CircleStyle({
-      radius: 7, fill: new Fill({ color: '#fda54a' }),
-      stroke: new Stroke({ color: '#ffffff', width: 3 }),
+      radius: 7, fill: new Fill({ color: '#18e5ff' }),
+      stroke: new Stroke({ color: '#e6ffff', width: 2.5 }),
+    }),
+    text: new Text({
+      text:String(feature.get('name') || ''),offsetY:-24,
+      fill:new Fill({color:'#e9ffff'}),stroke:new Stroke({color:'#05243b',width:5}),
+      font:'bold 11px sans-serif',overflow:false,
     }),
   }),
 })
+const annotationDefaultStyle = new Style({
+  image:new CircleStyle({radius:7,fill:new Fill({color:'#53b6ff'}),stroke:new Stroke({color:'#fff',width:2})}),
+  stroke:new Stroke({color:'#57abff',width:3,lineDash:[8,5]}),
+  fill:new Fill({color:'rgba(41,149,247,.2)'}),
+})
+const changeClueStyle = new Style({
+  image:new CircleStyle({radius:8,fill:new Fill({color:'#ff5971'}),stroke:new Stroke({color:'#fff',width:2})}),
+  stroke:new Stroke({color:'#ff5669',width:3,lineDash:[8,5]}),
+  fill:new Fill({color:'rgba(255,71,89,.28)'}),
+})
 const annotationLayer = new VectorLayer({
   source: annotationSource,
-  style: new Style({
-    image: new CircleStyle({
-      radius: 7, fill: new Fill({ color: '#2683eb' }),
-      stroke: new Stroke({ color: '#ffffff', width: 2.5 }),
-    }),
-    stroke: new Stroke({ color: '#2080de', width: 3, lineDash: [8, 5] }),
-    fill: new Fill({ color: 'rgba(28,131,231,0.18)' }),
-  }),
+  style: (feature) => feature.get('category') === '变化线索'
+    ? (showClues.value ? changeClueStyle : undefined)
+    : annotationDefaultStyle,
 })
 const measureLayer = new VectorLayer({
   source: measureSource,
@@ -154,6 +179,49 @@ const filteredItems = computed(() => {
 })
 const roadCount = computed(() => objectItems.value.filter((item) => item.category === '道路线路').length)
 const facilityCount = computed(() => objectItems.value.length - roadCount.value)
+const clueItems = computed(() => {
+  void annotationRevision.value
+  return annotationSource.getFeatures().filter(x => x.get('category') === '变化线索').map(asItem).reverse()
+})
+const clueCount = computed(() => clueItems.value.length)
+const monitoringCounts = computed(() => {
+  const items = [
+    { label:'道路线路',count:roadCount.value,color:'#22d8ed' },
+    { label:'道路设施',count:facilityCount.value,color:'#2288fb' },
+    { label:'变化线索',count:clueCount.value,color:'#ff5a78' },
+    { label:'其他标注',count:Math.max(0,annotationCount.value-clueCount.value),color:'#8b91ff' },
+  ]
+  const total = items.reduce((sum,x) => sum + x.count,0)
+  return items.map(x => ({...x, percent:total ? x.count / total * 100 : 0}))
+})
+const chartBackground = computed(() => {
+  let position = 0
+  const slices = monitoringCounts.value.map(x => {
+    const from = position
+    position += x.percent
+    return x.color + ' ' + from + '% ' + position + '%'
+  })
+  return 'conic-gradient(' + slices.join(',') + ')'
+})
+const totalSpatialRecords = computed(() => roadCount.value + facilityCount.value + annotationCount.value)
+const taskCounts = computed(() => ({
+  pending:tasks.value.filter(x => x.state==='pending').length,
+  active:tasks.value.filter(x => x.state==='active').length,
+  review:tasks.value.filter(x => x.state==='review').length,
+  done:tasks.value.filter(x => x.state==='done').length,
+}))
+const taskProgress = computed(() => tasks.value.length ? Math.round(taskCounts.value.done/tasks.value.length*100) : 0)
+const filteredClues = computed(() => clueItems.value.filter(item => {
+  if (selectedPeriod.value === 'all') return true
+  const raw = item.feature.get('createdAt')
+  const timestamp = typeof raw === 'string' ? Date.parse(raw) : NaN
+  return Number.isFinite(timestamp) && Date.now()-timestamp <= Number(selectedPeriod.value)*86400000
+}))
+const latestCards = computed(() => clueItems.value.length
+  ? clueItems.value.slice(0,8)
+  : objectItems.value.filter(x => x.category !== '道路线路').slice(0,8))
+const newestCardsTitle = computed(() => clueItems.value.length ? '最新监测线索' : '最新空间记录')
+
 const annotationItems = computed(() => {
   void annotationRevision.value
   return annotationSource.getFeatures().map(asItem)
@@ -165,6 +233,15 @@ let modifying: Modify | null = null
 let toastTimer: number | undefined
 let draftTimer: number | undefined
 let draftsInitialized = false
+let taskSerial = 0
+let historyTimer: number | undefined
+let historyReady = false
+let historyRestoring = false
+const undoStack: string[] = []
+let historyIndex = -1
+const historyVersion = ref(0)
+const canUndo = computed(() => {void historyVersion.value;return historyIndex > 0})
+const canRedo = computed(() => {void historyVersion.value;return historyIndex >= 0 && historyIndex < undoStack.length - 1})
 const selectedIsAnnotation = computed(() => Boolean(selected.value && annotationSource.hasFeature(selected.value.feature)))
 
 function showNotice(message: string) {
