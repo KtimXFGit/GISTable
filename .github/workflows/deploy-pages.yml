@@ -131,6 +131,9 @@ jobs:
           path: |
             frontend/browser-smoke-desktop.png
             frontend/browser-smoke-mobile.png
+            frontend/browser-command-1920x1080.png
+            frontend/browser-command-2048x1022.png
+            frontend/browser-command-2560x1440.png
           if-no-files-found: ignore
       - name: Upload failure screenshot
         if: failure()

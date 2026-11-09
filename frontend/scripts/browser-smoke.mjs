@@ -34,6 +34,45 @@ try {
   assert(await page.locator('.latest-panel').isVisible(), '最新记录卡片区域应该可见')
   assert(await page.locator('.statistics-section .donut').isVisible(), '动态环形图应该可见')
   assert(await page.locator('.right-tabs').isVisible(), '对象属性标签应该可见')
+  for (const [width,height,filename] of [
+    [1920,1080,'browser-command-1920x1080.png'],
+    [2560,1440,'browser-command-2560x1440.png'],
+    [2048,1022,'browser-command-2048x1022.png'],
+  ]) {
+    await page.setViewportSize({width,height})
+    await page.waitForTimeout(3200)
+    const visual = await page.evaluate(() => {
+      const css = (query) => {
+        const el = document.querySelector(query)
+        if (!el) return {font:0,visible:false}
+        const st = getComputedStyle(el)
+        return {font:parseFloat(st.fontSize),visible:st.display!=='none',width:el.getBoundingClientRect().width}
+      }
+      const panels = [...document.querySelectorAll('.left-panel .command-section,.right-panel .command-section,.latest-panel')]
+      return {
+        nav:css('.primary-nav .nav-link'),
+        title:css('.panel-title strong'),
+        layer:css('.layer-label strong'),
+        toolbar:css('.map-toolbar button small'),
+        kpi:css('.statistics-section .stats-row strong'),
+        detail:css('.detail-fields strong'),
+        iconCount:document.querySelectorAll('svg.ui-icon').length,
+        panel:panels.map(e => ({name:e.className,client:e.clientHeight,scroll:e.scrollHeight})),
+        documentWidth:document.documentElement.scrollWidth,
+        viewportWidth:innerWidth,
+      }
+    })
+    console.log('Visual metrics',width,height,JSON.stringify(visual))
+    assert(visual.nav.font >= 12, 'Navigation font too small at '+width)
+    assert(visual.title.font >= 15, 'Panel title too small at '+width)
+    assert(visual.layer.font >= 12.5, 'Layer name too small at '+width)
+    assert(visual.toolbar.font >= 11, 'Map toolbar label too small at '+width)
+    assert(visual.kpi.font >= 23, 'KPI font too small at '+width)
+    assert(visual.iconCount >= 20, 'SVG icon family is not rendered')
+    assert(visual.documentWidth <= width + 2, 'Unexpected horizontal document overflow at '+width)
+    await page.screenshot({path:filename})
+  }
+  await page.setViewportSize({width:1440,height:900})
   const bounds = await Promise.all([
     page.locator('.left-panel').boundingBox(),
     page.locator('.map-stage').boundingBox(),
