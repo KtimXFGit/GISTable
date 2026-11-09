@@ -115,6 +115,11 @@ jobs:
       - name: Install browser test runner
         working-directory: frontend
         run: npm install --no-save --package-lock=false --no-audit --no-fund playwright@1.58.2
+      - name: Install Chinese fonts for visual regression
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq fonts-wqy-microhei
+          fc-cache -f
       - name: Verify GIS interaction in Chromium
         working-directory: frontend
         run: node scripts/browser-smoke.mjs

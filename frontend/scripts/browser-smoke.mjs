@@ -31,6 +31,22 @@ try {
   await page.waitForFunction(() => document.querySelector('.stats-row strong')?.textContent?.trim() === '3', { timeout: 15000 })
   assert.match(await page.title(), /GISTable/)
   assert(await page.locator('.map-element').isVisible())
+  assert(await page.locator('.workspace-rail').isVisible(), '桌面功能导航应该可见')
+  assert(await page.locator('.right-tabs').isVisible(), '右侧对象属性面板应该可见')
+  const bounds = await Promise.all([
+    page.locator('.workspace-rail').boundingBox(),
+    page.locator('.left-panel').boundingBox(),
+    page.locator('.map-stage').boundingBox(),
+    page.locator('.right-panel').boundingBox(),
+    page.locator('.map-toolbar').boundingBox(),
+    page.locator('.map-element').boundingBox(),
+  ])
+  assert(bounds.every(Boolean), '所有桌面布局组件应可测量')
+  assert(bounds[0].x + bounds[0].width <= bounds[1].x + 3, '功能导航不应覆盖图层面板')
+  assert(bounds[1].x + bounds[1].width <= bounds[2].x + 3, '图层面板不应覆盖地图')
+  assert(bounds[2].x + bounds[2].width <= bounds[3].x + 3, '地图不应覆盖属性面板')
+  assert(bounds[4].y + bounds[4].height <= bounds[5].y + 3, '工具栏不应遮挡地图绘制区域')
+
   const roadsToggle = page.getByRole('button', { name: '隐藏公路线路' })
   await roadsToggle.click()
   assert(await page.getByRole('button', { name: '显示公路线路' }).isVisible())
@@ -96,6 +112,10 @@ try {
   }, { timeout: 10000 })
   await page.reload({ waitUntil: 'domcontentloaded' })
   await page.waitForFunction(() => document.querySelectorAll('.stats-row strong')[2]?.textContent?.trim() === '2', {timeout: 10000})
+  await page.locator('.right-tabs button').nth(1).click()
+  assert.equal(await page.locator('.annotation-records .annotation-record').count(), 2)
+  await page.locator('.right-tabs button').first().click()
+  await page.waitForTimeout(4500)
   await page.screenshot({path:'browser-smoke-desktop.png'})
   await page.setViewportSize({width:390,height:844})
   await page.locator('.mobile-panel-button').click()
