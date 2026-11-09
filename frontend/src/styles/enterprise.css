@@ -435,7 +435,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
     display:flex;position:absolute;left:0;top:0;bottom:0;width:min(280px,86vw);
     z-index:20;box-shadow:13px 0 35px #1c466033;
   }
-  .right-panel.detail-open { top:0;bottom:0;z-index:21; }
+  .right-panel.detail-open { top:0;bottom:0;z-index:21;width:100%;max-width:100%; }
   .mobile-scrim { display:block;position:fixed;inset:59px 0 30px;z-index:15;background:#142c4352; }
   .map-element { top:60px;height:calc(100% - 60px); }
   .map-toolbar { height:60px;justify-content:flex-start;overflow-x:auto;overflow-y:hidden;scrollbar-width:thin; }
