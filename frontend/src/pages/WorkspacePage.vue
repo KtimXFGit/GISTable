@@ -742,17 +742,23 @@ onBeforeUnmount(() => {
 
       <main class="map-stage">
         <div ref="mapElement" class="map-element" aria-label="可交互的空间地图"></div>
-        <div class="hud-reticle" aria-hidden="true"></div>
-        <div class="hud-corner hud-nw" aria-hidden="true"></div>
-        <div class="hud-corner hud-ne" aria-hidden="true"></div>
-        <div class="hud-corner hud-sw" aria-hidden="true"></div>
-        <div class="hud-corner hud-se" aria-hidden="true"></div>
         <div class="map-heading">
           <span class="map-heading-label"><span class="online-dot"></span> 公路空间信息</span>
           <span class="map-heading-sub">{{ compareEnabled ? '多时相影像卷帘' : imageryLabel }}</span>
         </div>
 
         <div class="map-toolbar" aria-label="地图工具">
+          <div class="map-toolbar-search">
+            <span class="toolbar-search-icon">⌕</span>
+            <input v-model="query" type="search" placeholder="搜索线路、标注或设施..." aria-label="地图空间对象搜索" />
+            <div v-if="query.trim()" class="map-search-results">
+              <button v-for="item in filteredItems.slice(0, 6)" :key="item.id" @click="focusFeature(item); query = ''">
+                <strong>{{ item.name }}</strong><small>{{ item.category }}</small>
+              </button>
+              <span v-if="!filteredItems.length">未找到符合条件的空间对象</span>
+            </div>
+          </div>
+          <div class="toolbar-divider"></div>
           <button :class="{ toolactive: activeTool === 'browse' }" title="选择对象" @click="setTool('browse')"><span>↖</span><small>选择</small></button>
           <div class="toolbar-divider"></div>
           <button :class="{ toolactive: activeTool === 'point' }" title="绘制点标注" @click="setTool('point')"><span>⌖</span><small>点</small></button>
@@ -761,6 +767,10 @@ onBeforeUnmount(() => {
           <div class="toolbar-divider"></div>
           <button :class="{ toolactive: activeTool === 'length' }" title="测量距离" @click="setTool('length')"><span>⟷</span><small>测距</small></button>
           <button :class="{ toolactive: activeTool === 'area' }" title="测量面积" @click="setTool('area')"><span>▱</span><small>测面</small></button>
+          <div class="toolbar-divider"></div>
+          <button title="导入 GeoJSON" @click="fileInput?.click()"><span>↥</span><small>导入</small></button>
+          <button title="导出 GeoJSON" @click="exportGeoJSON"><span>⇩</span><small>导出</small></button>
+          <button title="切换全屏" @click="toggleMapFullscreen"><span>⛶</span><small>全屏</small></button>
         </div>
 
         <div v-if="compareEnabled" class="imagery-swipe-labels">
@@ -796,6 +806,11 @@ onBeforeUnmount(() => {
           <button @click="measureOutput = ''; measureSource.clear()">×</button>
         </div>
 
+        <div class="map-base-switch" aria-label="地图底图切换">
+          <button :class="{ selected: !compareEnabled && imagerySelected === 'sentinel2016' }" @click="changeImagery('sentinel2016')">卫星影像</button>
+          <button :class="{ selected: !compareEnabled && imagerySelected === 'street' }" @click="changeImagery('street')">道路底图</button>
+          <button :class="{ selected: compareEnabled }" @click="toggleComparison">影像对比</button>
+        </div>
         <div class="map-legend">
           <strong>图例</strong>
           <span><i class="legend-line"></i> 公路线路</span>
@@ -816,61 +831,93 @@ onBeforeUnmount(() => {
         </div>
       </main>
 
-      <aside class="right-panel" :class="{ 'detail-open': detailDrawerOpen && selected }">
+      <aside class="right-panel" :class="{ 'detail-open': detailDrawerOpen }">
         <div class="right-header">
-          <div><div class="eyebrow">FEATURE INFORMATION</div><h2>对象详情</h2></div>
-          <button v-if="selected" class="close-detail" title="关闭详情" @click="clearSelection">×</button>
+          <div><div class="eyebrow">FEATURE INFORMATION</div><h2>空间对象信息</h2></div>
+          <button v-if="selected || detailDrawerOpen" class="close-detail" title="关闭详情" @click="clearSelection">×</button>
         </div>
-        <template v-if="selected">
-          <div class="detail-hero">
-            <div class="detail-icon" :class="{ amberbg: selected.category !== '道路线路' }">
-              {{ selected.category === '道路线路' ? '━' : '⌖' }}
-            </div>
-            <div><small>{{ selected.category }}</small><h3>{{ selected.name }}</h3><span>{{ selected.code }}</span></div>
-          </div>
-          <div class="detail-section-title">基础信息</div>
-          <div class="detail-fields">
-            <div><span>对象名称</span><strong>{{ selected.name }}</strong></div>
-            <div><span>对象编号</span><strong>{{ selected.code }}</strong></div>
-            <div><span>对象类型</span><strong>{{ selected.category }}</strong></div>
-            <div><span>所属资料</span><strong>{{ selected.unit }}</strong></div>
-          </div>
-          <template v-if="selectedIsAnnotation">
-            <div class="detail-section-title">标注属性</div>
-            <div class="annotation-editor">
-              <label>名称<input v-model="editName" maxlength="100" aria-label="标注名称" /></label>
-              <label>类别<input v-model="editCategory" maxlength="50" aria-label="标注类别" /></label>
-              <label>备注<textarea v-model="editDescription" maxlength="300" rows="3" aria-label="标注备注"></textarea></label>
-              <button @click="saveProperties">保存属性</button>
-            </div>
+        <div class="right-tabs">
+          <button :class="{ selected: rightTab === 'details' }" @click="rightTab = 'details'">对象属性</button>
+          <button :class="{ selected: rightTab === 'annotations' }" @click="rightTab = 'annotations'">标注记录 <small>{{ annotationCount }}</small></button>
+        </div>
+        <div class="right-scroll">
+          <template v-if="rightTab === 'details'">
+            <template v-if="selected">
+              <div class="detail-hero">
+                <div class="detail-icon" :class="{ amberbg: selected.category !== '道路线路' }">
+                  {{ selected.category === '道路线路' ? '━' : '⌖' }}
+                </div>
+                <div><small>{{ selected.category }}</small><h3>{{ selected.name }}</h3><span>{{ selected.code }}</span></div>
+              </div>
+              <div class="detail-section-title">基础信息</div>
+              <div class="detail-fields">
+                <div><span>对象名称</span><strong>{{ selected.name }}</strong></div>
+                <div><span>对象编号</span><strong>{{ selected.code }}</strong></div>
+                <div><span>对象类型</span><strong>{{ selected.category }}</strong></div>
+                <div><span>所属资料</span><strong>{{ selected.unit }}</strong></div>
+              </div>
+              <template v-if="selectedIsAnnotation">
+                <div class="detail-section-title">标注属性</div>
+                <div class="annotation-editor">
+                  <label>名称<input v-model="editName" maxlength="100" aria-label="标注名称" /></label>
+                  <label>类别<input v-model="editCategory" maxlength="50" aria-label="标注类别" /></label>
+                  <label>备注<textarea v-model="editDescription" maxlength="300" rows="3" aria-label="标注备注"></textarea></label>
+                  <button @click="saveProperties">保存属性</button>
+                </div>
+              </template>
+              <template v-else>
+                <div class="detail-section-title">对象描述</div>
+                <p class="detail-description">{{ selected.description }}</p>
+              </template>
+              <div class="detail-buttons">
+                <button @click="focusFeature(selected!)">⌖ 定位对象</button>
+                <button v-if="annotationSource.hasFeature(selected.feature)" class="danger-button" @click="removeSelected">移除标注</button>
+              </div>
+            </template>
+            <template v-else>
+              <div class="overview-card">
+                <div class="overview-icon">▧</div>
+                <h3>空间信息总览</h3>
+                <p>在地图中选择道路或设施，查看位置、基础属性及关联标注。</p>
+              </div>
+              <div class="detail-section-title">地图数据统计</div>
+              <div class="summary-list">
+                <div><span class="summary-icon teal-icon">━</span><span>道路线路</span><strong>{{ roadCount }}</strong></div>
+                <div><span class="summary-icon amber-icon">●</span><span>道路设施</span><strong>{{ facilityCount }}</strong></div>
+                <div><span class="summary-icon blue-icon">◆</span><span>地图标注</span><strong>{{ annotationCount }}</strong></div>
+              </div>
+              <div class="detail-section-title">当前影像</div>
+              <div class="active-imagery-card">
+                <span class="imagery-card-symbol">▧</span>
+                <div><strong>{{ compareEnabled ? '多时相影像对比' : imageryLabel }}</strong><small>{{ compareEnabled ? '左侧 ' + compareBefore + ' · 右侧 ' + compareAfter : imagerySelected === 'street' ? 'OpenStreetMap' : imageCatalog.find(x => x.id === imagerySelected)?.provider }}</small></div>
+                <button @click="openSection('imagery')" aria-label="管理影像图层">›</button>
+              </div>
+              <div class="info-note"><span>◉</span> 可通过地图工具添加点、线、面标注。</div>
+            </template>
           </template>
           <template v-else>
-            <div class="detail-section-title">对象描述</div>
-            <p class="detail-description">{{ selected.description }}</p>
+            <div class="detail-section-title">工作区标注 <span class="record-count">{{ annotationCount }} 个</span></div>
+            <div v-if="!annotationItems.length" class="annotation-empty">
+              <span>⬡</span><strong>暂无标注记录</strong><small>可使用地图工具添加空间标注</small>
+            </div>
+            <div v-else class="annotation-records">
+              <button v-for="item in annotationItems" :key="item.id" class="annotation-record" @click="focusFeature(item)">
+                <span class="record-dot blue"></span>
+                <span><strong>{{ item.name }}</strong><small>{{ item.category }} · {{ item.code }}</small></span>
+                <span class="record-arrow">›</span>
+              </button>
+            </div>
           </template>
-          <div class="detail-buttons">
-            <button @click="focusFeature(selected!)">⌖ 定位对象</button>
-            <button v-if="annotationSource.hasFeature(selected.feature)" class="danger-button" @click="removeSelected">移除标注</button>
+        </div>
+        <div class="right-bottom">
+          <div class="stats-row">
+            <div><strong>{{ roadCount }}</strong><span>道路线路</span></div>
+            <div><strong>{{ facilityCount }}</strong><span>设施对象</span></div>
+            <div><strong>{{ annotationCount }}</strong><span>地图标注</span></div>
           </div>
-        </template>
-        <template v-else>
-          <div class="overview-card">
-            <div class="overview-icon">⌖</div>
-            <h3>地图对象信息</h3>
-            <p>在地图中选择道路或设施对象，查看其位置与基础属性。</p>
-          </div>
-          <div class="detail-section-title">工作区概览</div>
-          <div class="summary-list">
-            <div><span class="summary-icon teal-icon">━</span><span>道路线路</span><strong>{{ roadCount }}</strong></div>
-            <div><span class="summary-icon amber-icon">●</span><span>道路设施</span><strong>{{ facilityCount }}</strong></div>
-            <div><span class="summary-icon blue-icon">◆</span><span>地图标注</span><strong>{{ annotationCount }}</strong></div>
-          </div>
-          <div class="info-note"><span>◉</span> 使用上方绘制工具可添加点、线、面标注。</div>
-        </template>
-        <div class="right-bottom" v-if="annotationCount">
-          <div class="workspace-count"><span>当前工作区标注</span><strong>{{ annotationCount }} 个 · {{ draftSaved ? '已保存本机' : '未保存' }}</strong></div>
-          <button class="outline-button" @click="exportGeoJSON">⇩ 导出 GeoJSON</button>
-          <button class="muted-button" @click="clearAnnotations">清空标注</button>
+          <div v-if="annotationCount" class="workspace-count"><span>当前工作区标注</span><strong>{{ annotationCount }} 个 · {{ draftSaved ? '已保存本机' : '未保存' }}</strong></div>
+          <button v-if="annotationCount" class="outline-button" @click="exportGeoJSON">⇩ 导出 GeoJSON</button>
+          <button v-if="annotationCount" class="muted-button" @click="clearAnnotations">清空标注</button>
         </div>
       </aside>
     </div>
