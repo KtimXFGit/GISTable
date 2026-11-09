@@ -157,7 +157,7 @@ try {
     assert.match(await toolsPage.locator('.measure-result').innerText(), /测量面积/)
 
     toolsPage.once('dialog', dialog => dialog.accept())
-    await toolsPage.getByRole('button', {name:'清空标注'}).click()
+    await toolsPage.locator('button[title="清空标注"]').click()
     await toolsPage.waitForFunction(() => document.querySelectorAll('.stats-row strong')[2]?.textContent?.trim() === '0',{timeout:10000})
     assert.equal(toolsErrors.length,0,toolsErrors.join('\n'))
   } finally {
