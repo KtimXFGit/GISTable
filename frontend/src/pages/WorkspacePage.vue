@@ -17,7 +17,7 @@ import Modify from 'ol/interaction/Modify'
 import { defaults as defaultControls, ScaleLine } from 'ol/control'
 import { fromLonLat, toLonLat } from 'ol/proj'
 import { getArea, getLength } from 'ol/sphere'
-import { Circle as CircleStyle, Fill, Stroke, Style, Text } from 'ol/style'
+import { Circle as CircleStyle, Fill, Icon, Stroke, Style, Text } from 'ol/style'
 import { getCenter } from 'ol/extent'
 import { localTaskRepository, type LocalTask, type TaskState } from '../repositories/localTaskRepository'
 import UiIcon from '../components/UiIcon.vue'
@@ -94,49 +94,103 @@ const geojson = new GeoJSON()
 const baseLayer = new TileLayer({ className: 'gis-light-basemap', source: new OSM(), visible: true })
 const historicalLayer = new TileLayer({ source: makeImagerySource('sentinel2016'), visible: true })
 const comparisonLayer = new TileLayer({ source: makeImagerySource('modis2025'), visible: false })
+const routeGlows = [
+  new Style({stroke:new Stroke({color:'rgba(5,214,255,.12)',width:27})}),
+  new Style({stroke:new Stroke({color:'rgba(5,220,255,.30)',width:18})}),
+  new Style({stroke:new Stroke({color:'rgba(9,234,255,.72)',width:9})}),
+  new Style({stroke:new Stroke({color:'#033451',width:5.5})}),
+  new Style({stroke:new Stroke({color:'#90f8ff',width:3.2})}),
+]
+const routeLabelStyles = new globalThis.Map<string,Style[]>()
 const roadLayer = new VectorLayer({
-  source: roadSource,
-  style: (feature) => [
-    new Style({ stroke: new Stroke({ color: 'rgba(20,219,250,.22)', width: 18 }) }),
-    new Style({ stroke: new Stroke({ color: 'rgba(10,226,253,.53)', width: 10 }) }),
-    new Style({ stroke: new Stroke({ color: '#031f38', width: 6 }) }),
-    new Style({ stroke: new Stroke({ color: '#73f2ff', width: 2.6 }) }),
-    new Style({ text: new Text({
-      text: String(feature.get('name') || ''), placement: 'line',
-      fill: new Fill({color:'#e9ffff'}), stroke: new Stroke({color:'#08213a',width:4}),
-      font:'bold 12px sans-serif', overflow:false,
-    }) }),
-  ],
+  source:roadSource,
+  declutter:true,
+  style:(feature) => {
+    const name = String(feature.get('name') || '')
+    let entry = routeLabelStyles.get(name)
+    if (!entry) {
+      entry = [
+        ...routeGlows,
+        new Style({text:new Text({
+          text:name,placement:'line',
+          font:'700 13px "Microsoft YaHei",sans-serif',
+          fill:new Fill({color:'#efffff'}),
+          stroke:new Stroke({color:'#07314e',width:5}),
+          overflow:false,
+        })}),
+      ]
+      routeLabelStyles.set(name,entry)
+    }
+    return entry
+  },
 })
+// Inline self-contained SVG (no external asset, fonts or UI icon CDN).
+const stationSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">' +
+  '<circle cx="32" cy="32" r="27" fill="#06b8ef" fill-opacity=".14" stroke="#2cf5ff" stroke-opacity=".35" stroke-width="3"/>' +
+  '<circle cx="32" cy="32" r="20" fill="#072e50" stroke="#69f7ff" stroke-width="3"/>' +
+  '<path d="M24 38V29l8-7 8 7v9M24 31h16M28 38v-6h8v6" fill="none" stroke="#d8ffff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>' +
+  '</svg>'
+const stationMarker = new Icon({
+  src:'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(stationSvg),
+  anchor:[.5,.5],scale:.78,
+})
+const facilityLabelCache = new globalThis.Map<string,Style>()
 const facilityLayer = new VectorLayer({
-  source: facilitySource,
-  style: (feature) => new Style({
-    image: new CircleStyle({
-      radius: 7, fill: new Fill({ color: '#18e5ff' }),
-      stroke: new Stroke({ color: '#e6ffff', width: 2.5 }),
-    }),
-    text: new Text({
-      text:String(feature.get('name') || ''),offsetY:-24,
-      fill:new Fill({color:'#e9ffff'}),stroke:new Stroke({color:'#05243b',width:5}),
-      font:'bold 11px sans-serif',overflow:false,
-    }),
-  }),
+  source:facilitySource,
+  declutter:true,
+  style:(feature) => {
+    const name = String(feature.get('name') || '')
+    let style = facilityLabelCache.get(name)
+    if (!style) {
+      style = new Style({
+        image:stationMarker,
+        text:new Text({
+          text:name,offsetY:-39,
+          font:'700 13px "Microsoft YaHei",sans-serif',
+          padding:[5,8,5,8],
+          fill:new Fill({color:'#e7ffff'}),
+          stroke:new Stroke({color:'#0b2844',width:2}),
+          backgroundFill:new Fill({color:'rgba(2,31,55,.88)'}),
+          backgroundStroke:new Stroke({color:'rgba(41,223,250,.88)',width:1}),
+        }),
+      })
+      facilityLabelCache.set(name,style)
+    }
+    return style
+  },
 })
 const annotationDefaultStyle = new Style({
   image:new CircleStyle({radius:7,fill:new Fill({color:'#53b6ff'}),stroke:new Stroke({color:'#fff',width:2})}),
   stroke:new Stroke({color:'#57abff',width:3,lineDash:[8,5]}),
   fill:new Fill({color:'rgba(41,149,247,.2)'}),
 })
-const changeClueStyle = new Style({
-  image:new CircleStyle({radius:8,fill:new Fill({color:'#ff5971'}),stroke:new Stroke({color:'#fff',width:2})}),
-  stroke:new Stroke({color:'#ff5669',width:3,lineDash:[8,5]}),
-  fill:new Fill({color:'rgba(255,71,89,.28)'}),
-})
+const changeClueStyle = [
+  new Style({stroke:new Stroke({color:'rgba(255,28,52,.28)',width:14})}),
+  new Style({
+    image:new CircleStyle({radius:9,fill:new Fill({color:'#ff4d68'}),stroke:new Stroke({color:'#fff',width:2.5})}),
+    stroke:new Stroke({color:'#ff455b',width:3.5,lineDash:[8,5]}),
+    fill:new Fill({color:'rgba(255,61,83,.31)'}),
+  }),
+]
 const annotationLayer = new VectorLayer({
   source: annotationSource,
-  style: (feature) => feature.get('category') === '变化线索'
-    ? (showClues.value ? changeClueStyle : undefined)
-    : annotationDefaultStyle,
+  style: (feature) => {
+    if (feature.get('category') === '变化线索') {
+      if (!showClues.value) return undefined
+      return [
+        ...changeClueStyle,
+        new Style({text:new Text({
+          text:String(feature.get('name') || '变化关注区域'),
+          font:'700 13px "Microsoft YaHei",sans-serif',
+          offsetY:-20,padding:[6,8,6,8],
+          fill:new Fill({color:'#fff4f4'}),
+          backgroundFill:new Fill({color:'rgba(99,13,29,.92)'}),
+          backgroundStroke:new Stroke({color:'#ff6b7f',width:1.3}),
+        })}),
+      ]
+    }
+    return annotationDefaultStyle
+  },
 })
 const measureLayer = new VectorLayer({
   source: measureSource,
@@ -693,7 +747,7 @@ onMounted(async () => {
   map = new Map({
     target: mapElement.value!,
     layers: [baseLayer, historicalLayer, comparisonLayer, roadLayer, facilityLayer, annotationLayer, measureLayer, highlightLayer],
-    view: new View({ center: fromLonLat([104.075, 30.652]), zoom: 12, minZoom: 4, maxZoom: 19 }),
+    view: new View({ center: fromLonLat([104.075, 30.652]), zoom: 12.55, minZoom: 4, maxZoom: 19 }),
     controls: defaultControls({ zoom: false, rotate: false, attribution: false }).extend([new ScaleLine({ units: 'metric' })]),
   })
   comparisonLayer.on('prerender', (event) => {
