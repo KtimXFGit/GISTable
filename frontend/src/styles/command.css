@@ -749,3 +749,67 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   .right-panel.detail-open {z-index:20;}
   .left-panel.mobile-open {z-index:22;}
 }
+
+
+/* Visual iteration 3: eliminate clipped controls, expose object actions and
+   use full-card heights that fit the actual dashboard band. */
+@media(min-width:701px) {
+  .map-toolbar {
+    width:max-content;max-width:calc(100% - 84px);
+    justify-content:flex-start;min-width:0;
+  }
+  .detail-body:has(.detail-top) {
+    display:grid;
+    grid-template-columns:clamp(112px,6.7vw,145px) minmax(0,1fr);
+    gap:0 clamp(10px,.7vw,16px);
+    align-content:start;
+  }
+  .detail-body:has(.detail-top) .detail-top {
+    grid-column:1;grid-row:1;display:flex;flex-direction:column;align-items:stretch;gap:8px;margin:3px 0 0;
+  }
+  .detail-body:has(.detail-top) .detail-thumbnail {
+    width:100%;min-width:0;height:clamp(102px,6vw,129px);
+  }
+  .detail-body:has(.detail-top) .detail-title-group {gap:6px;}
+  .detail-body:has(.detail-top) .detail-title-group strong {font-size:clamp(13px,.75vw,17px);}
+  .detail-body:has(.detail-top) .detail-fields {
+    grid-column:2;grid-row:1;align-self:start;min-width:0;
+  }
+  .detail-body:has(.detail-top) .detail-fields>div {padding:3px 0;gap:6px;}
+  .detail-body:has(.detail-top) .detail-fields>div>span {min-width:48px;font-size:clamp(11px,.61vw,14px);}
+  .detail-body:has(.detail-top) .detail-fields>div>strong {font-size:clamp(11.5px,.67vw,14.5px);}
+  .detail-body:has(.detail-top) .detail-buttons {
+    grid-column:1 / -1;grid-row:auto;
+    display:flex;gap:8px;margin:10px 0 3px;
+  }
+  .detail-body:has(.detail-top) .annotation-editor {grid-column:1 / -1;}
+}
+.layer-control-section .section-inner {padding:9px 11px 7px;}
+.layer-control-section .layer-main {min-height:45px;}
+.layer-control-section .layer-miniature {height:41px;}
+.layer-control-section .layer-row {padding:1px 0 1px;}
+.layer-control-section .opacity-row {min-height:13px;height:15px;padding:0 7px 0 clamp(82px,5.2vw,105px);}
+.layer-control-section .opacity-row input {height:6px;}
+.layer-control-section .layer-bottom-actions {margin-top:6px;}
+.layer-control-section .layer-bottom-actions button {min-height:34px;}
+.imagery-section .section-inner {padding:9px 11px 7px;}
+.imagery-section .form-row {margin-bottom:8px;}
+.imagery-section .imagery-select {height:36px;min-height:34px;}
+.imagery-section .date-comparison-label span {padding:7px 3px;}
+.imagery-section .compare-modes {margin:4px 0 8px;}
+.imagery-section .compare-modes button {min-height:37px;}
+.imagery-section .image-preview-pair {height:clamp(80px,4.6vw,100px);}
+.change-section .section-inner {padding:7px 10px 5px;gap:7px;}
+.change-section .detect-button {min-height:40px;}
+.change-section .change-hint {font-size:clamp(10.5px,.6vw,13px);}
+.latest-card-track {padding:6px 9px 7px;align-items:flex-start;}
+.latest-card {height:clamp(75px,6.3vh,93px);padding:5px;gap:8px;}
+.latest-thumb {width:clamp(74px,4.7vw,95px);min-width:clamp(74px,4.7vw,95px);}
+.latest-info {gap:4px;}
+.latest-info strong {font-size:clamp(12px,.67vw,15px);}
+.latest-info>span,.latest-info small {font-size:clamp(10.5px,.61vw,13px);}
+@media(max-width:700px) {
+  .map-toolbar {width:auto;left:6px;right:6px;}
+  .latest-card {height:73px;}
+  .latest-thumb {width:65px;min-width:65px;}
+}

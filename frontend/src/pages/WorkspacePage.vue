@@ -358,14 +358,16 @@ function toggleClueLayer() {
   annotationLayer.changed()
 }
 function spatialPreview(item: RecordItem): string {
+  // Feature geometries are projected into EPSG:3857. The licensed 2016 EOX
+  // WMS thumbnail is geographically centered on the actual feature, not a mock.
   const extent = item.feature.getGeometry()?.getExtent()
   if (!extent) return ''
-  const [lon,lat] = toLonLat(getCenter(extent))
-  const z = 12, n = 2 ** z
-  const x = Math.floor((lon+180)/360*n)
-  const y = Math.floor((1-Math.log(Math.tan(lat*Math.PI/180)+1/Math.cos(lat*Math.PI/180))/Math.PI)/2*n)
-  if (x < 0 || x >= n || y < 0 || y >= n) return ''
-  return 'https://tile.openstreetmap.org/' + z + '/' + x + '/' + y + '.png'
+  const [x,y] = getCenter(extent)
+  const halfX = 1100, halfY = 825
+  const bounds = [x-halfX,y-halfY,x+halfX,y+halfY].join(',')
+  return 'https://tiles.maps.eox.at/map?SERVICE=WMS&REQUEST=GetMap&VERSION=1.1.1' +
+    '&LAYERS=s2cloudless_3857&STYLES=&FORMAT=image%2Fjpeg&SRS=EPSG%3A3857' +
+    '&BBOX=' + encodeURIComponent(bounds) + '&WIDTH=280&HEIGHT=210'
 }
 function imageryPreviewUrl(id: ImageId): string {
   if (id === 'sentinel2016') {
