@@ -182,6 +182,10 @@ try {
   await page.getByPlaceholder('输入名称、编号或类别...').fill('巡查关注点-01')
   await page.locator('.full-list .compact-record').first().click()
   assert(await page.locator('.right-panel.detail-open').isVisible(), '移动端应能够查看与编辑对象')
+  const mobileHeaderBox = await page.locator('.command-header').boundingBox()
+  const mobileTitleBox = await page.locator('.right-panel.detail-open .panel-title').first().boundingBox()
+  assert(mobileHeaderBox && mobileTitleBox && mobileTitleBox.y >= mobileHeaderBox.y + mobileHeaderBox.height - 2,
+    '移动端详情标题不能被顶部导航遮挡')
   await page.screenshot({path:'browser-smoke-mobile.png'})
   const toolsPage = await browser.newPage({viewport:{width:1440,height:900}})
   const toolsErrors = []

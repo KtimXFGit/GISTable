@@ -835,3 +835,13 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   .detail-body:has(.detail-top) .detail-buttons {margin:5px 0 0;}
   .detail-body:has(.detail-top) .detail-buttons button {min-height:34px;}
 }
+
+/* Visual iteration 5: anchor responsive drawers below the fixed command header. */
+.content-grid {position:relative;}
+@media(max-width:1000px) {
+  .right-panel.detail-open {top:0;bottom:0;}
+}
+@media(max-width:700px) {
+  .left-panel.mobile-open {top:0;bottom:0;}
+  .right-panel.detail-open {top:0;bottom:0;}
+}
