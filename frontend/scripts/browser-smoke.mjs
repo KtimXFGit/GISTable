@@ -31,21 +31,22 @@ try {
   await page.waitForFunction(() => document.querySelector('.stats-row strong')?.textContent?.trim() === '3', { timeout: 15000 })
   assert.match(await page.title(), /GISTable/)
   assert(await page.locator('.map-element').isVisible())
-  assert(await page.locator('.workspace-rail').isVisible(), '桌面功能导航应该可见')
-  assert(await page.locator('.right-tabs').isVisible(), '右侧对象属性面板应该可见')
+  assert(await page.locator('.latest-panel').isVisible(), '最新记录卡片区域应该可见')
+  assert(await page.locator('.statistics-section .donut').isVisible(), '动态环形图应该可见')
+  assert(await page.locator('.right-tabs').isVisible(), '对象属性标签应该可见')
   const bounds = await Promise.all([
-    page.locator('.workspace-rail').boundingBox(),
     page.locator('.left-panel').boundingBox(),
     page.locator('.map-stage').boundingBox(),
     page.locator('.right-panel').boundingBox(),
     page.locator('.map-toolbar').boundingBox(),
     page.locator('.map-element').boundingBox(),
+    page.locator('.latest-panel').boundingBox(),
   ])
-  assert(bounds.every(Boolean), '所有桌面布局组件应可测量')
-  assert(bounds[0].x + bounds[0].width <= bounds[1].x + 3, '功能导航不应覆盖图层面板')
-  assert(bounds[1].x + bounds[1].width <= bounds[2].x + 3, '图层面板不应覆盖地图')
-  assert(bounds[2].x + bounds[2].width <= bounds[3].x + 3, '地图不应覆盖属性面板')
-  assert(bounds[4].y + bounds[4].height <= bounds[5].y + 3, '工具栏不应遮挡地图绘制区域')
+  assert(bounds.every(Boolean), '三栏驾驶舱组件应该具有有效布局')
+  assert(bounds[0].x + bounds[0].width <= bounds[1].x + 4, '左侧图层面板不应覆盖地图')
+  assert(bounds[1].x + bounds[1].width <= bounds[2].x + 4, '地图不应覆盖右侧统计看板')
+  assert(bounds[3].x >= bounds[1].x && bounds[3].x + bounds[3].width <= bounds[1].x + bounds[1].width + 3, '悬浮工具栏应保持在地图内部')
+  assert(bounds[5].y >= bounds[1].y + bounds[1].height - 3, '最新记录区域应位于地图下方')
 
   const roadsToggle = page.getByRole('button', { name: '隐藏公路线路' })
   await roadsToggle.click()
@@ -82,7 +83,7 @@ try {
   await page.locator('input[aria-label="标注名称"]').fill('巡查关注点-01')
   await page.locator('textarea[aria-label="标注备注"]').fill('地图现场关注对象')
   await page.getByRole('button', { name: '保存属性' }).click()
-  await page.getByRole('button', { name: '对象目录' }).click()
+  await page.locator('.layer-bottom-actions button').first().click()
   await page.getByPlaceholder('输入名称、编号或类别...').fill('巡查关注点-01')
   assert.equal(await page.locator('.full-list .compact-record').count(), 1, '新建标注应可检索')
 
@@ -99,7 +100,7 @@ try {
   await page.waitForFunction(() => document.querySelectorAll('.stats-row strong')[2]?.textContent?.trim() === '2', {timeout:10000})
   const [download] = await Promise.all([
     page.waitForEvent('download', { timeout: 10000 }),
-    page.getByRole('button', { name: /导出标注/ }).first().click(),
+    page.locator('button[title="导出 GeoJSON"]').click(),
   ])
   const exportData = JSON.parse(await readFile(await download.path(), 'utf8'))
   assert.equal(exportData.features.length, 2, '导出应包含所有标注')
@@ -120,7 +121,7 @@ try {
   await page.setViewportSize({width:390,height:844})
   await page.locator('.mobile-panel-button').click()
   assert(await page.locator('.left-panel.mobile-open').isVisible(), '移动端应能够打开图层菜单')
-  await page.getByRole('button', {name:'对象目录'}).click()
+  await page.locator('.layer-bottom-actions button').first().click()
   await page.getByPlaceholder('输入名称、编号或类别...').fill('巡查关注点-01')
   await page.locator('.full-list .compact-record').first().click()
   assert(await page.locator('.right-panel.detail-open').isVisible(), '移动端应能够查看与编辑对象')
@@ -164,7 +165,7 @@ try {
   }
   assert.equal(runtimeErrors.length, 0, runtimeErrors.join('\n'))
   console.log('Imagery provider HTTP response observations:', JSON.stringify(imageryResponses))
-  console.log('Browser GIS flow passed: layer controls, imagery/swipe, validated GeoJSON I/O, annotation persistence, mobile panels, line/polygon drawing, distance/area measurement, clearing')
+  console.log('Browser GIS command center passed: dashboard geometry, charts, imagery swipe, GeoJSON, annotation persistence, mobile and GIS drawing tools')
 } catch (error) {
   await page.screenshot({ path: 'browser-smoke-failure.png', fullPage: true }).catch(() => {})
   console.error('Browser GIS flow failed:', error)
