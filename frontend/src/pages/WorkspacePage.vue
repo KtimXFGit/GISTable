@@ -312,6 +312,14 @@ function spatialPreview(item: RecordItem): string {
   if (x < 0 || x >= n || y < 0 || y >= n) return ''
   return 'https://tile.openstreetmap.org/' + z + '/' + x + '/' + y + '.png'
 }
+function imageryPreviewUrl(id: ImageId): string {
+  if (id === 'sentinel2016') {
+    return 'https://tiles.maps.eox.at/map?SERVICE=WMS&REQUEST=GetMap&VERSION=1.1.1&LAYERS=s2cloudless_3857&STYLES=&FORMAT=image%2Fjpeg&SRS=EPSG%3A3857&BBOX=11580576%2C3582636%2C11590576%2C3592636&WIDTH=260&HEIGHT=140'
+  }
+  const date = id === 'modis2024' ? '2024-06-15' : '2025-06-15'
+  return 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_CorrectedReflectance_TrueColor/default/' +
+    date + '/GoogleMapsCompatible_Level9/9/210/404.jpg'
+}
 function snapshotAnnotations(): string {
   return geojson.writeFeatures(annotationSource.getFeatures(), {
     dataProjection:'EPSG:4326',featureProjection:'EPSG:3857',rightHanded:true,
@@ -685,7 +693,7 @@ onMounted(async () => {
     target: mapElement.value!,
     layers: [baseLayer, historicalLayer, comparisonLayer, roadLayer, facilityLayer, annotationLayer, measureLayer, highlightLayer],
     view: new View({ center: fromLonLat([104.075, 30.652]), zoom: 12, minZoom: 4, maxZoom: 19 }),
-    controls: defaultControls({ zoom: false, rotate: false }).extend([new ScaleLine({ units: 'metric' })]),
+    controls: defaultControls({ zoom: false, rotate: false, attribution: false }).extend([new ScaleLine({ units: 'metric' })]),
   })
   comparisonLayer.on('prerender', (event) => {
     if (!compareEnabled.value || !map) return
@@ -898,8 +906,8 @@ onBeforeUnmount(() => {
               <input id="gis-swipe-left" type="range" min="5" max="95" aria-label="左侧卷帘位置" :value="swipePosition" @input="updateSwipe" />
             </div>
             <div class="image-preview-pair" @click="!compareEnabled && toggleComparison()" role="button" tabindex="0" @keydown.enter="!compareEnabled && toggleComparison()">
-              <div class="image-preview before"><span>{{ compareBefore === 'sentinel2016' ? '2016' : compareBefore === 'modis2024' ? '2024' : '2025' }}</span></div>
-              <div class="image-preview after"><span>{{ compareAfter === 'sentinel2016' ? '2016' : compareAfter === 'modis2024' ? '2024' : '2025' }}</span></div>
+              <div class="image-preview before" :style="{ backgroundImage: 'linear-gradient(135deg,rgba(6,42,56,.08),rgba(6,27,44,.24)),url(' + imageryPreviewUrl(compareBefore) + ')' }"><span>{{ compareBefore === 'sentinel2016' ? '2016' : compareBefore === 'modis2024' ? '2024' : '2025' }}</span></div>
+              <div class="image-preview after" :style="{ backgroundImage: 'linear-gradient(135deg,rgba(6,42,56,.08),rgba(6,27,44,.24)),url(' + imageryPreviewUrl(compareAfter) + ')' }"><span>{{ compareAfter === 'sentinel2016' ? '2016' : compareAfter === 'modis2024' ? '2024' : '2025' }}</span></div>
               <span class="preview-slider-handle">◀▶</span>
             </div>
           </div>
