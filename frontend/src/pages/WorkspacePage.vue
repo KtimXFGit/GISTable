@@ -792,352 +792,265 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="app-shell">
-    <header class="header">
+  <div class="app-shell command-shell">
+    <header class="header command-header">
       <button class="mobile-panel-button" aria-label="打开图层与影像菜单" @click="mobileMenuOpen = !mobileMenuOpen">☰</button>
-      <div class="brand">
+      <div class="brand command-brand">
         <div class="brand-mark"><span class="brand-globe">◈</span></div>
         <div class="brand-copy">
           <span class="brand-name">GISTable</span>
           <span class="brand-sub">公路遥感监测与巡查执法管理平台</span>
         </div>
       </div>
-      <div class="header-divider"></div>
       <nav class="primary-nav" aria-label="主要导航">
-        <button class="nav-link" :class="{ active: leftTab === 'layers' && !compareEnabled }" @click="resetView"><span class="nav-symbol">▧</span> 综合地图</button>
-        <button class="nav-link" :class="{ active: leftTab === 'imagery' && !compareEnabled }" @click="openSection('imagery')"><span class="nav-symbol">◈</span> 遥感影像</button>
-        <button class="nav-link" :class="{ active: compareEnabled }" @click="toggleComparison"><span class="nav-symbol">◫</span> 影像对比</button>
-        <button class="nav-link" :class="{ active: leftTab === 'objects' && !compareEnabled }" @click="openSection('objects')"><span class="nav-symbol">⌕</span> 空间查询</button>
+        <button class="nav-link active" @click="resetView"><span>⌂</span> 综合指挥</button>
+        <button class="nav-link" @click="openSection('imagery')"><span>◈</span> 遥感监测</button>
+        <button class="nav-link" @click="setDashboardPanel('tasks')"><span>▣</span> 巡查管理</button>
+        <button class="nav-link" @click="setDashboardPanel('stats')"><span>▥</span> 数据分析</button>
+        <button class="nav-link" @click="layerGroup = 'topic'; openSection('layers')"><span>▱</span> 专题图层</button>
       </nav>
       <div class="header-spacer"></div>
-      <button class="header-button header-data-button" @click="fileInput?.click()"><span>↥</span> 导入 GeoJSON</button>
-      <button v-if="annotationCount" class="header-button primary" @click="exportGeoJSON"><span>⇩</span> 导出标注</button>
-      <div class="avatar" title="空间工作台">GIS</div>
+      <span class="header-scope"><i class="scope-dot"></i> 空间工作区</span>
+      <div class="avatar" title="空间工作区">GIS</div>
     </header>
 
     <div class="content-grid">
-      <nav class="workspace-rail" aria-label="工作台功能导航">
-        <div class="rail-group">
-          <button class="rail-link" :class="{ selected: leftTab === 'layers' && !compareEnabled }"
-            @click="resetView" title="地图工作台"><span class="rail-icon">▧</span><span>地图工作台</span></button>
-          <button class="rail-link" :class="{ selected: leftTab === 'imagery' && !compareEnabled }"
-            @click="openSection('imagery')" title="影像浏览"><span class="rail-icon">▣</span><span>影像浏览</span></button>
-          <button class="rail-link" :class="{ selected: compareEnabled }"
-            @click="toggleComparison" title="影像对比"><span class="rail-icon">◫</span><span>影像对比</span></button>
-          <button class="rail-link" :class="{ selected: leftTab === 'objects' && !compareEnabled }"
-            @click="openSection('objects')" title="空间查询"><span class="rail-icon">⌕</span><span>空间查询</span></button>
-          <button class="rail-link" @click="openAnnotationRecords" title="标注管理"><span class="rail-icon">⬡</span><span>标注管理</span></button>
-          <button class="rail-link" @click="fileInput?.click()" title="数据导入"><span class="rail-icon">↥</span><span>数据导入</span></button>
-        </div>
-        <div class="rail-bottom"><span class="rail-bottom-mark">◈</span><span>空间工作台</span></div>
-      </nav>
       <aside class="left-panel" :class="{ 'mobile-open': mobileMenuOpen }">
-        <div class="intro">
-          <div class="eyebrow">SPATIAL LAYERS <span class="tiny-line"></span></div>
-          <h1>图层管理</h1>
-          <p>管理影像、道路和工作区标注图层</p>
-        </div>
-
-        <div class="left-tabs">
-          <button :class="{ selected: leftTab === 'layers' }" @click="leftTab = 'layers'">图层管理</button>
-          <button :class="{ selected: leftTab === 'objects' }" @click="leftTab = 'objects'">对象目录</button>
-          <button :class="{ selected: leftTab === 'imagery' }" @click="leftTab = 'imagery'">遥感影像</button>
-        </div>
-
-        <div class="left-scroll">
-          <template v-if="leftTab === 'layers'">
-            <div class="section-heading"><span>图层列表</span><small>{{ layerDefinitions.length }} 个图层</small></div>
-            <div class="layer-list">
-              <div v-for="layer in layerDefinitions" :key="layer.key" class="layer-row">
+        <section class="command-section layer-control-section">
+          <header class="panel-title"><span class="panel-icon">▱</span><strong>图层控制</strong><small>{{ layerDefinitions.filter(l => layersVisible[l.key]).length }} / {{ layerDefinitions.length }}</small></header>
+          <div class="section-inner">
+            <div class="left-tabs">
+              <button :class="{ selected: layerGroup === 'base' }" @click="layerGroup = 'base'; leftTab = 'layers'">基础图层</button>
+              <button :class="{ selected: layerGroup === 'business' }" @click="layerGroup = 'business'; leftTab = 'layers'">业务图层</button>
+              <button :class="{ selected: layerGroup === 'topic' }" @click="layerGroup = 'topic'; leftTab = 'layers'">专题图层</button>
+            </div>
+            <div v-if="leftTab === 'objects'" class="layer-search-view">
+              <label class="search-box">
+                <span>⌕</span><input v-model="query" type="search" placeholder="输入名称、编号或类别..." />
+              </label>
+              <div class="compact-list full-list">
+                <button v-for="item in filteredItems" :key="item.id" class="compact-record" @click="focusFeature(item)">
+                  <span class="record-dot" :class="item.category === '道路线路' ? 'teal' : 'amber'"></span>
+                  <span><strong>{{ item.name }}</strong><small>{{ item.code }}</small></span>
+                </button>
+                <div v-if="!filteredItems.length" class="empty-list">没有找到匹配的空间对象</div>
+              </div>
+            </div>
+            <div v-else class="layer-list">
+              <div v-for="layer in layerDefinitions.filter(l => layerGroup === 'base' || (layerGroup === 'business' ? l.key === 'roads' || l.key === 'facilities' : l.key === 'annotations'))" :key="layer.key" class="layer-row">
                 <div class="layer-main">
                   <button class="layer-toggle" :class="{ on: layersVisible[layer.key] }"
-                    :aria-label="(layersVisible[layer.key] ? '隐藏' : '显示') + layer.name"
-                    @click="toggleLayer(layer.key)">
+                    :aria-label="(layersVisible[layer.key] ? '隐藏' : '显示') + layer.name" @click="toggleLayer(layer.key)">
                     <span v-if="layersVisible[layer.key]">✓</span>
                   </button>
-                  <span class="layer-symbol" :style="{ color: layer.color }">{{ layer.symbol }}</span>
-                  <div class="layer-label"><strong>{{ layer.name }}</strong><span>{{ layer.desc }}</span></div>
-                  <span class="layer-caret">⌄</span>
+                  <div class="layer-miniature" :class="'mini-' + layer.key"><span>{{ layer.symbol }}</span></div>
+                  <div class="layer-label"><strong>{{ layer.name }}</strong><small>{{ layer.desc }}</small></div>
+                  <span class="layer-more">···</span>
                 </div>
-                <div v-if="layer.key !== 'basemap' && layersVisible[layer.key]" class="opacity-row">
-                  <span>透明度</span>
+                <div v-if="layersVisible[layer.key]" class="opacity-row">
                   <input type="range" min="15" max="100" :value="layerOpacity[layer.key]"
                     :aria-label="layer.name + '不透明度'" @input="changeOpacity(layer.key, $event)" />
                   <span>{{ layerOpacity[layer.key] }}%</span>
                 </div>
               </div>
+              <div v-if="layerGroup === 'topic'" class="clue-layer-line">
+                <label class="toggle-line"><span>变化线索图层</span><input type="checkbox" :checked="showClues" @change="toggleClueLayer" /></label>
+                <small>{{ clueCount }} 个已标绘区域</small>
+              </div>
             </div>
-            <div class="section-heading second-heading"><span>快速检索</span><small>空间对象</small></div>
-            <label class="search-box">
-              <span class="search-icon">⌕</span>
-              <input v-model="query" type="search" placeholder="搜索线路、名称或编号..." />
-            </label>
-            <div class="compact-list">
-              <button v-for="item in filteredItems.slice(0, 5)" :key="item.id"
-                class="compact-record" @click="focusFeature(item)">
-                <span class="record-dot" :class="item.category === '道路线路' ? 'teal' : 'amber'"></span>
-                <span><strong>{{ item.name }}</strong><small>{{ item.category }} · {{ item.code }}</small></span>
-                <span class="record-arrow">›</span>
-              </button>
-              <div v-if="!filteredItems.length" class="empty-list">未找到符合条件的空间对象</div>
+            <div class="layer-bottom-actions">
+              <button @click="leftTab = 'objects'">⌕ 空间查询</button>
+              <button @click="leftTab = 'layers'; layerGroup = 'base'">▱ 图层列表</button>
             </div>
-            <button v-if="filteredItems.length > 5" class="text-link" @click="leftTab = 'objects'">查看全部对象 <span>→</span></button>
-          </template>
-          <template v-else-if="leftTab === 'imagery'">
-            <div class="section-heading"><span>影像图层</span><small>资料目录</small></div>
-            <div class="imagery-group">
-              <label class="imagery-label" for="gis-imagery-source">地图背景</label>
+          </div>
+        </section>
+
+        <section class="command-section imagery-section">
+          <header class="panel-title"><span class="panel-icon">⌖</span><strong>影像与时相</strong><small>IMAGE</small></header>
+          <div class="section-inner">
+            <label class="form-row" for="gis-imagery-source"><span>影像源</span>
               <select id="gis-imagery-source" class="imagery-select" :value="imagerySelected"
                 @change="changeImagery(($event.target as HTMLSelectElement).value)">
-                <option value="street">道路地图</option>
-                <option v-for="item in imageCatalog" :key="item.id" :value="item.id">{{ item.name }}</option>
+                <option value="street">道路底图 · OSM</option>
+                <option v-for="image in imageCatalog" :key="image.id" :value="image.id">{{ image.name }}</option>
               </select>
-              <p class="imagery-description">切换不同来源的卫星影像和道路底图。</p>
-            </div>
-            <div class="section-heading second-heading"><span>多时相对比</span><small>卷帘浏览</small></div>
-            <div class="imagery-group">
-              <button class="compare-switch" :class="{ selected: compareEnabled }" @click="toggleComparison">
-                <span>◫</span> {{ compareEnabled ? '关闭卷帘对比' : '开启卷帘对比' }}
-              </button>
-              <template v-if="compareEnabled">
-                <label class="imagery-label" for="gis-time-a">左侧影像</label>
-                <select id="gis-time-a" class="imagery-select" :value="compareBefore"
-                  @change="changeComparisonDate('before', ($event.target as HTMLSelectElement).value)">
-                  <option v-for="item in imageCatalog" :key="item.id" :value="item.id">{{ item.name }}</option>
-                </select>
-                <label class="imagery-label" for="gis-time-b">右侧影像</label>
-                <select id="gis-time-b" class="imagery-select" :value="compareAfter"
-                  @change="changeComparisonDate('after', ($event.target as HTMLSelectElement).value)">
-                  <option v-for="item in imageCatalog" :key="item.id" :value="item.id">{{ item.name }}</option>
-                </select>
-                <label class="imagery-label" for="gis-swipe-left">对比位置 {{ swipePosition }}%</label>
-                <input id="gis-swipe-left" class="imagery-range" type="range" min="5" max="95" :value="swipePosition" @input="updateSwipe" />
-              </template>
-              <p class="imagery-description">不同来源影像的采集日期、分辨率可能不同，变化判断需核对影像元数据。</p>
-            </div>
-            <div class="section-heading second-heading"><span>影像目录</span></div>
-            <div v-for="item in imageCatalog" :key="item.id" class="imagery-dataset">
-              <span class="image-catalog-dot">◈</span>
-              <div><strong>{{ item.name }}</strong><small>{{ item.resolution }} · {{ item.provider }}</small></div>
-            </div>
-          </template>
-          <template v-else>
-            <div class="section-heading"><span>对象检索</span><small>{{ filteredItems.length }} 条记录</small></div>
-            <label class="search-box">
-              <span class="search-icon">⌕</span>
-              <input v-model="query" type="search" placeholder="输入名称、编号或类别..." />
             </label>
-            <div class="compact-list full-list">
-              <button v-for="item in filteredItems" :key="item.id"
-                class="compact-record" :class="{ picked: selected?.id === item.id }" @click="focusFeature(item)">
-                <span class="record-dot" :class="item.category === '道路线路' ? 'teal' : 'amber'"></span>
-                <span><strong>{{ item.name }}</strong><small>{{ item.category }} · {{ item.code }}</small></span>
-                <span class="record-arrow">›</span>
-              </button>
-              <div v-if="!filteredItems.length" class="empty-list">未找到符合条件的空间对象</div>
+            <div class="form-row date-row"><span>影像日期</span>
+              <div class="date-comparison-label"><span>{{ imageCatalog.find(x => x.id === compareBefore)?.name.replace('MODIS · ','') }}</span><b>⇄</b><span>{{ imageCatalog.find(x => x.id === compareAfter)?.name.replace('MODIS · ','') }}</span></div>
             </div>
-          </template>
-        </div>
-        <div class="left-footer">
-          <span class="network-icon">◇</span>
-          <div><strong>数据总览</strong><small>{{ dataLoaded ? '空间图层已加载' : '正在读取空间资料' }}</small></div>
-          <span class="healthy-dot" :class="{ inactive: !dataLoaded }"></span>
-        </div>
+            <div class="compare-modes">
+              <button :class="{ selected: !compareEnabled }" @click="compareEnabled && toggleComparison()">单期浏览</button>
+              <button class="compare-switch" :class="{ selected: compareEnabled }" @click="toggleComparison">◫ 卷帘对比</button>
+            </div>
+            <div v-if="compareEnabled" class="compare-options">
+              <label for="gis-time-a">左侧影像</label>
+              <select id="gis-time-a" class="imagery-select" :value="compareBefore" @change="changeComparisonDate('before', ($event.target as HTMLSelectElement).value)">
+                <option v-for="im in imageCatalog" :key="im.id" :value="im.id">{{ im.name }}</option>
+              </select>
+              <label for="gis-time-b">右侧影像</label>
+              <select id="gis-time-b" class="imagery-select" :value="compareAfter" @change="changeComparisonDate('after', ($event.target as HTMLSelectElement).value)">
+                <option v-for="im in imageCatalog" :key="im.id" :value="im.id">{{ im.name }}</option>
+              </select>
+              <input id="gis-swipe-left" type="range" min="5" max="95" aria-label="左侧卷帘位置" :value="swipePosition" @input="updateSwipe" />
+            </div>
+            <div class="image-preview-pair" @click="!compareEnabled && toggleComparison()" role="button" tabindex="0" @keydown.enter="!compareEnabled && toggleComparison()">
+              <div class="image-preview before"><span>{{ compareBefore === 'sentinel2016' ? '2016' : compareBefore === 'modis2024' ? '2024' : '2025' }}</span></div>
+              <div class="image-preview after"><span>{{ compareAfter === 'sentinel2016' ? '2016' : compareAfter === 'modis2024' ? '2024' : '2025' }}</span></div>
+              <span class="preview-slider-handle">◀▶</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="command-section change-section">
+          <header class="panel-title"><span class="panel-icon">◈</span><strong>变化线索</strong><small>{{ clueCount }} 个</small></header>
+          <div class="section-inner change-inner">
+            <button class="detect-button" @click="beginClueDraw">⬡ 标绘变化区域</button>
+            <label class="toggle-line"><span>变化区域显示</span><input type="checkbox" :checked="showClues" @change="toggleClueLayer" /></label>
+            <div class="change-hint"><span>◉</span> 新增区域将进入线索统计与最新记录</div>
+          </div>
+        </section>
       </aside>
 
-      <main class="map-stage">
-        <div ref="mapElement" class="map-element" aria-label="可交互的空间地图"></div>
-        <div class="map-heading">
-          <span class="map-heading-label"><span class="online-dot"></span> 公路空间信息</span>
-          <span class="map-heading-sub">{{ compareEnabled ? '多时相影像卷帘' : imageryLabel }}</span>
-        </div>
+      <div class="center-column">
+        <main class="map-stage">
+          <div ref="mapElement" class="map-element" aria-label="可交互的空间地图"></div>
+          <div class="map-grid-overlay" aria-hidden="true"></div>
+          <div class="map-compass" aria-hidden="true"><b>N</b><span>✧</span></div>
+          <div class="map-heading"><span class="map-heading-label">空间信息地图</span><span class="map-heading-sub">{{ compareEnabled ? '多时相影像卷帘' : imageryLabel }}</span></div>
+          <div class="map-coord-chip"><span>经度：{{ currentLonLat.split('  ')[0] }}</span><span>纬度：{{ currentLonLat.split('  ')[1] }}</span><span>级别：{{ currentZoom }}</span></div>
 
-        <div class="map-toolbar" aria-label="地图工具">
-          <div class="map-toolbar-search">
-            <span class="toolbar-search-icon">⌕</span>
-            <input v-model="query" type="search" placeholder="搜索线路、标注或设施..." aria-label="地图空间对象搜索" />
-            <div v-if="query.trim()" class="map-search-results">
-              <button v-for="item in filteredItems.slice(0, 6)" :key="item.id" @click="focusFeature(item); query = ''">
-                <strong>{{ item.name }}</strong><small>{{ item.category }}</small>
-              </button>
-              <span v-if="!filteredItems.length">未找到符合条件的空间对象</span>
-            </div>
+          <div class="map-toolbar" aria-label="地图工具">
+            <button :class="{ toolactive: activeTool === 'browse' }" title="选择对象" @click="setTool('browse')"><span>↖</span><small>选择</small></button>
+            <button :class="{ toolactive: activeTool === 'point' }" title="绘制点标注" @click="setTool('point')"><span>⌖</span><small>点标注</small></button>
+            <button :class="{ toolactive: activeTool === 'line' }" title="绘制线标注" @click="setTool('line')"><span>⌁</span><small>线标注</small></button>
+            <button :class="{ toolactive: activeTool === 'polygon' }" title="绘制面标注" @click="setTool('polygon')"><span>⬡</span><small>面标注</small></button>
+            <button :class="{ toolactive: activeTool === 'length' }" title="测量距离" @click="setTool('length')"><span>⌁</span><small>测距</small></button>
+            <button :class="{ toolactive: activeTool === 'area' }" title="测量面积" @click="setTool('area')"><span>▱</span><small>测面</small></button>
+            <span class="toolbar-divider"></span>
+            <button title="撤销" :disabled="!canUndo" @click="applyHistory(-1)"><span>↶</span><small>撤销</small></button>
+            <button title="重做" :disabled="!canRedo" @click="applyHistory(1)"><span>↷</span><small>重做</small></button>
+            <button title="清空标注" :disabled="!annotationCount" @click="clearAnnotations"><span>⌫</span><small>清除</small></button>
+            <button title="导入 GeoJSON" @click="fileInput?.click()"><span>↥</span><small>导入</small></button>
+            <button title="导出 GeoJSON" @click="exportGeoJSON"><span>↧</span><small>导出</small></button>
           </div>
-          <div class="toolbar-divider"></div>
-          <button :class="{ toolactive: activeTool === 'browse' }" title="选择对象" @click="setTool('browse')"><span>↖</span><small>选择</small></button>
-          <div class="toolbar-divider"></div>
-          <button :class="{ toolactive: activeTool === 'point' }" title="绘制点标注" @click="setTool('point')"><span>⌖</span><small>点</small></button>
-          <button :class="{ toolactive: activeTool === 'line' }" title="绘制线标注" @click="setTool('line')"><span>⌁</span><small>线</small></button>
-          <button :class="{ toolactive: activeTool === 'polygon' }" title="绘制面标注" @click="setTool('polygon')"><span>⬡</span><small>面</small></button>
-          <div class="toolbar-divider"></div>
-          <button :class="{ toolactive: activeTool === 'length' }" title="测量距离" @click="setTool('length')"><span>⟷</span><small>测距</small></button>
-          <button :class="{ toolactive: activeTool === 'area' }" title="测量面积" @click="setTool('area')"><span>▱</span><small>测面</small></button>
-          <div class="toolbar-divider"></div>
-          <button title="导入 GeoJSON" @click="fileInput?.click()"><span>↥</span><small>导入</small></button>
-          <button title="导出 GeoJSON" @click="exportGeoJSON"><span>⇩</span><small>导出</small></button>
-          <button title="切换全屏" @click="toggleMapFullscreen"><span>⛶</span><small>全屏</small></button>
-        </div>
 
-        <div v-if="compareEnabled" class="imagery-swipe-labels">
-          <span>{{ imageCatalog.find((x) => x.id === compareBefore)?.name }}</span>
-          <span>{{ imageCatalog.find((x) => x.id === compareAfter)?.name }}</span>
-        </div>
-        <div v-if="compareEnabled" class="swipe-divider" :style="{ left: swipePosition + '%' }" aria-hidden="true">
-          <span class="swipe-grip">↔</span>
-        </div>
-        <div v-if="compareEnabled" class="swipe-bottom-slider">
-          <input type="range" min="5" max="95" :value="swipePosition" @input="updateSwipe" aria-label="调整卷帘对比位置" />
-        </div>
-        <div v-if="imageryError && layersVisible.basemap" class="imagery-error" role="alert">
-          <span>当前影像部分区域加载失败</span>
-          <button @click="changeImagery('street')">查看道路地图</button>
-        </div>
-        <div class="zoom-toolbar">
-          <button title="放大地图" @click="zoomBy(1)">+</button>
-          <button title="缩小地图" @click="zoomBy(-1)">−</button>
-          <div class="zoom-separator"></div>
-          <button title="恢复初始视野" @click="resetView">⌂</button>
-        </div>
+          <div class="map-target" aria-hidden="true"><span></span></div>
+          <div v-if="compareEnabled" class="imagery-swipe-labels"><span>{{ imageCatalog.find(x => x.id === compareBefore)?.name }}</span><span>{{ imageCatalog.find(x => x.id === compareAfter)?.name }}</span></div>
+          <div v-if="compareEnabled" class="swipe-divider" :style="{ left: swipePosition + '%' }" aria-hidden="true"><span class="swipe-grip">↔</span></div>
+          <div v-if="compareEnabled" class="swipe-bottom-slider"><input type="range" min="5" max="95" :value="swipePosition" @input="updateSwipe" aria-label="调整卷帘对比位置" /></div>
+          <div v-if="imageryError && layersVisible.basemap" class="imagery-error" role="alert"><span>当前影像部分区域加载失败</span><button @click="changeImagery('street')">切换道路底图</button></div>
+          <div class="zoom-toolbar">
+            <button title="切换全屏" @click="toggleMapFullscreen">⛶</button>
+            <button title="恢复初始视野" @click="resetView">⌂</button>
+            <button title="放大地图" @click="zoomBy(1)">+</button>
+            <button title="缩小地图" @click="zoomBy(-1)">−</button>
+          </div>
+          <div v-if="activeTool !== 'browse'" class="draw-hint"><i class="pulse"></i>
+            {{ activeTool === 'point' ? '单击地图放置标注点' : activeTool === 'line' || activeTool === 'length' ? '单击绘制节点，双击结束' : '单击绘制边界，双击结束' }}
+            <button @click="setTool('browse')">完成</button>
+          </div>
+          <div v-if="measureOutput" class="measure-result"><span>◇</span>{{ measureOutput }}<button @click="measureOutput = ''; measureSource.clear()">×</button></div>
+          <div class="map-base-switch"><button :class="{ selected: !compareEnabled && imagerySelected === 'sentinel2016' }" @click="changeImagery('sentinel2016')">卫星影像</button><button :class="{ selected: imagerySelected === 'street' && !compareEnabled }" @click="changeImagery('street')">道路底图</button><button :class="{ selected: compareEnabled }" @click="toggleComparison">卷帘</button></div>
+          <div class="map-legend"><strong>图例</strong><span><i class="legend-line"></i> 道路</span><span><i class="legend-dot amber"></i> 设施</span><span><i class="legend-dot blue"></i> 标注</span><span><i class="legend-dot red"></i> 变化关注</span></div>
+          <div v-if="usesSentinelImagery" class="raster-attribution"><a href="https://cloudless.eox.at" target="_blank" rel="noopener noreferrer">EOxCloudless</a> by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2016 &amp; 2017)</div>
+          <div class="map-footnote"><span>WGS84</span><span class="foot-separator">/</span><span>{{ currentLonLat }}</span><span class="foot-separator">/</span><span>缩放 {{ currentZoom }}</span></div>
+        </main>
 
-        <div v-if="activeTool !== 'browse'" class="draw-hint">
-          <span class="pulse"></span>
-          {{ activeTool === 'point' ? '单击地图放置标注点'
-            : activeTool === 'line' || activeTool === 'length' ? '单击绘制节点，双击结束'
-            : '单击绘制边界，双击结束' }}
-          <button @click="setTool('browse')">完成</button>
-        </div>
-        <div v-if="measureOutput" class="measure-result">
-          <span>◈</span> {{ measureOutput }}
-          <button @click="measureOutput = ''; measureSource.clear()">×</button>
-        </div>
-
-        <div class="map-base-switch" aria-label="地图底图切换">
-          <button :class="{ selected: !compareEnabled && imagerySelected === 'sentinel2016' }" @click="changeImagery('sentinel2016')">卫星影像</button>
-          <button :class="{ selected: !compareEnabled && imagerySelected === 'street' }" @click="changeImagery('street')">道路底图</button>
-          <button :class="{ selected: compareEnabled }" @click="toggleComparison">影像对比</button>
-        </div>
-        <div class="map-legend">
-          <strong>图例</strong>
-          <span><i class="legend-line"></i> 公路线路</span>
-          <span><i class="legend-dot amber"></i> 道路设施</span>
-          <span><i class="legend-dot blue"></i> 地图标注</span>
-        </div>
-        <div v-if="usesSentinelImagery" class="raster-attribution">
-          <a href="https://cloudless.eox.at" target="_blank" rel="noopener noreferrer">EOxCloudless</a>
-          by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2016 &amp; 2017)
-        </div>
-        <div class="map-footnote">
-          <span>{{ compareEnabled ? 'NASA GIBS / EOxCloudless' : imagerySelected === 'street' ? 'OpenStreetMap' : imagerySelected === 'sentinel2016' ? 'EOxCloudless' : 'NASA GIBS' }}</span>
-          <span class="foot-separator">/</span>
-          <span>WGS84</span><span class="foot-separator">/</span>
-          <span>{{ currentLonLat }}</span>
-          <span class="foot-separator">/</span>
-          <span>缩放 {{ currentZoom }}</span>
-        </div>
-      </main>
+        <section class="latest-panel">
+          <header class="panel-title"><span class="panel-icon">♧</span><strong>{{ newestCardsTitle }}</strong><small>{{ latestCards.length }} 条</small><button class="latest-more" @click="openAnnotationRecords">查看全部 ›</button></header>
+          <div class="latest-card-track">
+            <button v-for="item in latestCards" :key="item.id" class="latest-card" :class="{ selected: selected?.id === item.id }" @click="focusFeature(item)">
+              <div class="latest-thumb" :style="{ backgroundImage: 'linear-gradient(145deg,rgba(5,32,51,.06),rgba(6,26,45,.3)),url(' + spatialPreview(item) + ')' }"><span>⌖</span></div>
+              <div class="latest-info"><strong>{{ item.name }}</strong><span>{{ item.category }}</span><small>◈ {{ item.code }}</small><small>⌖ {{ item.unit }}</small></div>
+            </button>
+            <div v-if="!latestCards.length" class="latest-empty">暂无空间记录</div>
+          </div>
+        </section>
+      </div>
 
       <aside class="right-panel" :class="{ 'detail-open': detailDrawerOpen }">
-        <div class="right-header">
-          <div><div class="eyebrow">FEATURE INFORMATION</div><h2>空间对象信息</h2></div>
-          <button v-if="selected || detailDrawerOpen" class="close-detail" title="关闭详情" @click="clearSelection">×</button>
-        </div>
-        <div class="right-tabs">
-          <button :class="{ selected: rightTab === 'details' }" @click="rightTab = 'details'">对象属性</button>
-          <button :class="{ selected: rightTab === 'annotations' }" @click="rightTab = 'annotations'">标注记录 <small>{{ annotationCount }}</small></button>
-        </div>
-        <div class="right-scroll">
-          <template v-if="rightTab === 'details'">
-            <template v-if="selected">
-              <div class="detail-hero">
-                <div class="detail-icon" :class="{ amberbg: selected.category !== '道路线路' }">
-                  {{ selected.category === '道路线路' ? '━' : '⌖' }}
+        <section class="command-section detail-section">
+          <header class="panel-title"><span class="panel-icon">♙</span><strong>对象详情</strong></header>
+          <div class="right-tabs"><button :class="{ selected: rightTab === 'details' }" @click="rightTab = 'details'">对象详情</button><button :class="{ selected: rightTab === 'annotations' }" @click="rightTab = 'annotations'">标注记录</button><button v-if="rightTab === 'tasks' || rightTab === 'stats'" class="selected" @click="rightTab = 'details'">返回详情</button></div>
+          <div class="detail-body">
+            <template v-if="rightTab === 'details' || rightTab === 'stats'">
+              <template v-if="selected">
+                <div class="detail-top">
+                  <div class="detail-thumbnail" :style="{ backgroundImage:'url(' + spatialPreview(selected) + ')' }"></div>
+                  <div class="detail-title-group"><strong>{{ selected.name }}</strong><span class="status-chip">{{ selected.category }}</span><small>{{ selected.code }}</small></div>
                 </div>
-                <div><small>{{ selected.category }}</small><h3>{{ selected.name }}</h3><span>{{ selected.code }}</span></div>
-              </div>
-              <div class="detail-section-title">基础信息</div>
-              <div class="detail-fields">
-                <div><span>对象名称</span><strong>{{ selected.name }}</strong></div>
-                <div><span>对象编号</span><strong>{{ selected.code }}</strong></div>
-                <div><span>对象类型</span><strong>{{ selected.category }}</strong></div>
-                <div><span>所属资料</span><strong>{{ selected.unit }}</strong></div>
-              </div>
-              <template v-if="selectedIsAnnotation">
-                <div class="detail-section-title">标注属性</div>
-                <div class="annotation-editor">
+                <div class="detail-fields">
+                  <div><span>编号</span><strong>{{ selected.code }}</strong></div>
+                  <div><span>类型</span><strong>{{ selected.category }}</strong></div>
+                  <div><span>位置</span><strong>地图空间对象</strong></div>
+                  <div><span>资料</span><strong>{{ selected.unit }}</strong></div>
+                  <div><span>描述</span><strong>{{ selected.description }}</strong></div>
+                </div>
+                <div v-if="selectedIsAnnotation" class="annotation-editor">
                   <label>名称<input v-model="editName" maxlength="100" aria-label="标注名称" /></label>
                   <label>类别<input v-model="editCategory" maxlength="50" aria-label="标注类别" /></label>
-                  <label>备注<textarea v-model="editDescription" maxlength="300" rows="3" aria-label="标注备注"></textarea></label>
+                  <label>备注<textarea v-model="editDescription" maxlength="300" rows="2" aria-label="标注备注"></textarea></label>
                   <button @click="saveProperties">保存属性</button>
                 </div>
+                <div class="detail-buttons"><button @click="focusFeature(selected!)">⌖ 定位</button><button v-if="selectedIsAnnotation" @click="saveProperties">✎ 编辑保存</button><button @click="createTaskForSelected">➤ 创建任务</button></div>
               </template>
-              <template v-else>
-                <div class="detail-section-title">对象描述</div>
-                <p class="detail-description">{{ selected.description }}</p>
-              </template>
-              <div class="detail-buttons">
-                <button @click="focusFeature(selected!)">⌖ 定位对象</button>
-                <button v-if="annotationSource.hasFeature(selected.feature)" class="danger-button" @click="removeSelected">移除标注</button>
+              <div v-else class="detail-placeholder"><span>⌖</span><strong>选择地图对象</strong><small>点击线路、设施或变化区域查看详情</small></div>
+            </template>
+            <template v-else-if="rightTab === 'annotations'">
+              <div class="compact-list full-list annotation-records">
+                <button v-for="item in annotationItems" :key="item.id" class="compact-record annotation-record" @click="focusFeature(item)">
+                  <span class="record-dot blue"></span><span><strong>{{ item.name }}</strong><small>{{ item.category }} · {{ item.code }}</small></span><span class="record-arrow">›</span>
+                </button>
+                <div v-if="!annotationItems.length" class="empty-list">暂无标注记录</div>
               </div>
+              <button v-if="annotationCount" class="side-action" @click="exportGeoJSON">↧ 导出标注</button>
             </template>
             <template v-else>
-              <div class="overview-card">
-                <div class="overview-icon">▧</div>
-                <h3>空间信息总览</h3>
-                <p>在地图中选择道路或设施，查看位置、基础属性及关联标注。</p>
+              <div class="compact-list task-mini-list">
+                <div v-for="task in tasks.slice(0,4)" :key="task.id" class="task-list-item">
+                  <strong>{{ task.name }}</strong><small>{{ taskLabel(task.state) }}</small>
+                  <button @click="focusTask(task)">定位</button><button v-if="task.state !== 'done'" @click="advanceTask(task.id)">{{ taskNextLabel(task.state) }}</button>
+                </div>
+                <div v-if="!tasks.length" class="empty-list">暂无巡查任务</div>
               </div>
-              <div class="detail-section-title">地图数据统计</div>
-              <div class="summary-list">
-                <div><span class="summary-icon teal-icon">━</span><span>道路线路</span><strong>{{ roadCount }}</strong></div>
-                <div><span class="summary-icon amber-icon">●</span><span>道路设施</span><strong>{{ facilityCount }}</strong></div>
-                <div><span class="summary-icon blue-icon">◆</span><span>地图标注</span><strong>{{ annotationCount }}</strong></div>
-              </div>
-              <div class="detail-section-title">当前影像</div>
-              <div class="active-imagery-card">
-                <span class="imagery-card-symbol">▧</span>
-                <div><strong>{{ compareEnabled ? '多时相影像对比' : imageryLabel }}</strong><small>{{ compareEnabled ? '左侧 ' + compareBefore + ' · 右侧 ' + compareAfter : imagerySelected === 'street' ? 'OpenStreetMap' : imageCatalog.find(x => x.id === imagerySelected)?.provider }}</small></div>
-                <button @click="openSection('imagery')" aria-label="管理影像图层">›</button>
-              </div>
-              <div class="info-note"><span>◉</span> 可通过地图工具添加点、线、面标注。</div>
             </template>
-          </template>
-          <template v-else>
-            <div class="detail-section-title">工作区标注 <span class="record-count">{{ annotationCount }} 个</span></div>
-            <div v-if="!annotationItems.length" class="annotation-empty">
-              <span>⬡</span><strong>暂无标注记录</strong><small>可使用地图工具添加空间标注</small>
-            </div>
-            <div v-else class="annotation-records">
-              <button v-for="item in annotationItems" :key="item.id" class="annotation-record" @click="focusFeature(item)">
-                <span class="record-dot blue"></span>
-                <span><strong>{{ item.name }}</strong><small>{{ item.category }} · {{ item.code }}</small></span>
-                <span class="record-arrow">›</span>
-              </button>
-            </div>
-          </template>
-        </div>
-        <div class="right-bottom">
-          <div class="stats-row">
-            <div><strong>{{ roadCount }}</strong><span>道路线路</span></div>
-            <div><strong>{{ facilityCount }}</strong><span>设施对象</span></div>
-            <div><strong>{{ annotationCount }}</strong><span>地图标注</span></div>
           </div>
-          <div v-if="annotationCount" class="workspace-count"><span>当前工作区标注</span><strong>{{ annotationCount }} 个 · {{ draftSaved ? '已保存本机' : '未保存' }}</strong></div>
-          <button v-if="annotationCount" class="outline-button" @click="exportGeoJSON">⇩ 导出 GeoJSON</button>
-          <button v-if="annotationCount" class="muted-button" @click="clearAnnotations">清空标注</button>
-        </div>
+        </section>
+
+        <section class="command-section statistics-section">
+          <header class="panel-title"><span class="panel-icon">▥</span><strong>监测统计</strong><div class="period-tabs"><button :class="{ selected: selectedPeriod === '7' }" @click="selectedPeriod = '7'">近7天</button><button :class="{ selected: selectedPeriod === '30' }" @click="selectedPeriod = '30'">近30天</button><button :class="{ selected: selectedPeriod === 'all' }" @click="selectedPeriod = 'all'">全部</button></div></header>
+          <div class="stats-row">
+            <div><span>◈</span><strong>{{ roadCount }}</strong><small>道路线路</small></div>
+            <div><span>▣</span><strong>{{ facilityCount }}</strong><small>设施对象</small></div>
+            <div><span>⬡</span><strong>{{ annotationCount }}</strong><small>地图标注</small></div>
+            <div><span>✓</span><strong>{{ taskCounts.done }}</strong><small>任务完成</small></div>
+          </div>
+          <div class="stats-chart-row">
+            <div class="donut" :style="{ background: chartBackground }"><div class="donut-center"><strong>{{ totalSpatialRecords }}</strong><small>空间对象</small></div></div>
+            <div class="chart-legend">
+              <div v-for="item in monitoringCounts" :key="item.label"><span class="legend-color" :style="{ background: item.color }"></span><span>{{ item.label }}</span><strong>{{ item.count }}</strong><small>{{ item.percent.toFixed(1) }}%</small></div>
+            </div>
+          </div>
+          <div class="stats-bottom">变化关注区域 <strong>{{ selectedPeriod === 'all' ? clueCount : filteredClues.length }}</strong> 个<span> · 当前工作区</span></div>
+        </section>
+
+        <section class="command-section tasks-section">
+          <header class="panel-title"><span class="panel-icon">▣</span><strong>巡查任务进度</strong><small>本机工作区</small></header>
+          <div class="progress-line"><div class="progress-track"><div :style="{ width: taskProgress + '%' }"></div></div><strong>完成率 {{ taskProgress }}%</strong></div>
+          <div class="task-status-grid">
+            <button @click="setDashboardPanel('tasks')"><strong>{{ taskCounts.pending }}</strong><small>待派发</small></button>
+            <button @click="setDashboardPanel('tasks')"><strong>{{ taskCounts.active }}</strong><small>进行中</small></button>
+            <button @click="setDashboardPanel('tasks')"><strong>{{ taskCounts.review }}</strong><small>待核查</small></button>
+            <button @click="setDashboardPanel('tasks')"><strong>{{ taskCounts.done }}</strong><small>已完成</small></button>
+          </div>
+          <div class="task-footer"><button @click="setDashboardPanel('tasks')">查看巡查任务 <span>›</span></button><button v-if="selected" @click="createTaskForSelected">+ 新建</button></div>
+        </section>
       </aside>
     </div>
 
     <div v-if="mobileMenuOpen" class="mobile-scrim" @click="mobileMenuOpen = false"></div>
-    <footer class="status-bar">
-      <span><i class="status-connected"></i> 地图服务</span>
-      <span class="status-divider"></span>
-      <span>© OpenStreetMap contributors · EOxCloudless / EOX · NASA GIBS</span>
-      <span class="footer-spacer"></span>
-      <span>图层 {{ layerDefinitions.filter((x) => layersVisible[x.key]).length }} / {{ layerDefinitions.length }}</span>
-      <span class="status-divider"></span>
-      <span>EPSG:3857</span>
-    </footer>
+    <footer class="status-bar"><span><i class="status-connected"></i> 地图服务</span><span>© OpenStreetMap contributors · EOxCloudless / EOX · NASA GIBS</span><span class="footer-spacer"></span><span>本机工作区</span><span>EPSG:3857</span></footer>
     <input ref="fileInput" class="visually-hidden" type="file" accept=".geojson,.json,application/geo+json,application/json" @change="importGeoJSON" />
-    <div v-if="notice" class="toast-notice" role="status"><span>◉</span> {{ notice }} <button @click="notice = ''">×</button></div>
+    <div v-if="notice" class="toast-notice" role="status"><span>◉</span>{{ notice }}<button @click="notice = ''">×</button></div>
   </div>
 </template>
