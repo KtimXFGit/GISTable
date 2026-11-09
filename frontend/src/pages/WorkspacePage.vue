@@ -244,6 +244,115 @@ const canUndo = computed(() => {void historyVersion.value;return historyIndex > 
 const canRedo = computed(() => {void historyVersion.value;return historyIndex >= 0 && historyIndex < undoStack.length - 1})
 const selectedIsAnnotation = computed(() => Boolean(selected.value && annotationSource.hasFeature(selected.value.feature)))
 
+function setDashboardPanel(panel: 'details' | 'annotations' | 'tasks' | 'stats') {
+  rightTab.value = panel
+  detailDrawerOpen.value = true
+}
+function taskLabel(state: TaskState): string {
+  return ({pending:'待派发',active:'进行中',review:'待核查',done:'已完成'} as Record<TaskState,string>)[state]
+}
+function taskNextLabel(state: TaskState): string {
+  return ({pending:'开始巡查',active:'提交核查',review:'完成任务',done:'已完成'} as Record<TaskState,string>)[state]
+}
+function createTaskForSelected() {
+  if (!selected.value) { showNotice('请先选择一个地图对象'); return }
+  if (tasks.value.some(t => t.featureId === selected.value!.id && t.state !== 'done')) {
+    showNotice('该对象已有尚未完成的巡查任务'); return
+  }
+  const id = 'T-' + Date.now() + '-' + ++taskSerial
+  const now = new Date().toISOString()
+  const task: LocalTask = {
+    id,featureId:selected.value.id,name:selected.value.name,
+    state:'pending',createdAt:now,updatedAt:now,
+  }
+  const next = [task,...tasks.value]
+  if (!localTaskRepository.save(next)) {
+    showNotice('本机任务保存失败，请检查浏览器存储空间'); return
+  }
+  tasks.value = next
+  setDashboardPanel('tasks')
+  showNotice('巡查任务已加入本机工作区')
+}
+function advanceTask(id: string) {
+  const current = tasks.value.find(t => t.id === id)
+  if (!current || current.state === 'done') return
+  const next: Record<Exclude<TaskState,'done'>,TaskState> = {
+    pending:'active',active:'review',review:'done',
+  }
+  const updated: LocalTask = {...current,state:next[current.state],updatedAt:new Date().toISOString()}
+  const data = tasks.value.map(t => t.id === id ? updated : t)
+  if (!localTaskRepository.save(data)) { showNotice('任务状态保存失败'); return }
+  tasks.value = data
+  showNotice('任务已更新为' + taskLabel(updated.state))
+}
+function focusTask(task: LocalTask) {
+  const feature = [...annotationSource.getFeatures(),...roadSource.getFeatures(),...facilitySource.getFeatures()]
+    .find(x => asItem(x).id === task.featureId)
+  if (feature) focusFeature(asItem(feature))
+  else showNotice('关联的地图对象已不在当前工作区')
+}
+function beginClueDraw() {
+  showClues.value = true
+  annotationLayer.changed()
+  drawAsClue.value = true
+  setTool('polygon')
+  showNotice('请在地图上绘制关注区域，双击结束')
+}
+function toggleClueLayer() {
+  showClues.value = !showClues.value
+  annotationLayer.changed()
+}
+function spatialPreview(item: RecordItem): string {
+  const extent = item.feature.getGeometry()?.getExtent()
+  if (!extent) return ''
+  const [lon,lat] = toLonLat(getCenter(extent))
+  const z = 12, n = 2 ** z
+  const x = Math.floor((lon+180)/360*n)
+  const y = Math.floor((1-Math.log(Math.tan(lat*Math.PI/180)+1/Math.cos(lat*Math.PI/180))/Math.PI)/2*n)
+  if (x < 0 || x >= n || y < 0 || y >= n) return ''
+  return 'https://tile.openstreetmap.org/' + z + '/' + x + '/' + y + '.png'
+}
+function snapshotAnnotations(): string {
+  return geojson.writeFeatures(annotationSource.getFeatures(), {
+    dataProjection:'EPSG:4326',featureProjection:'EPSG:3857',rightHanded:true,
+  })
+}
+function storeHistoryNow() {
+  if (!historyReady || historyRestoring) return
+  if (historyTimer !== undefined) window.clearTimeout(historyTimer)
+  historyTimer = undefined
+  const value = snapshotAnnotations()
+  if (undoStack[historyIndex] === value) return
+  undoStack.splice(historyIndex+1)
+  undoStack.push(value)
+  if (undoStack.length > 25) undoStack.shift()
+  historyIndex = undoStack.length-1
+  historyVersion.value++
+}
+function scheduleHistory() {
+  if (!historyReady || historyRestoring) return
+  if (historyTimer !== undefined) window.clearTimeout(historyTimer)
+  historyTimer = window.setTimeout(storeHistoryNow,80)
+}
+function applyHistory(direction: -1 | 1) {
+  storeHistoryNow()
+  const next = historyIndex+direction
+  if (next < 0 || next >= undoStack.length) return
+  historyRestoring = true
+  try {
+    const data = geojson.readFeatures(JSON.parse(undoStack[next]), {
+      dataProjection:'EPSG:4326',featureProjection:'EPSG:3857',
+    }) as Feature<Geometry>[]
+    annotationSource.clear()
+    annotationSource.addFeatures(data)
+    historyIndex = next
+    historyVersion.value++
+    updateAnnotationCount()
+    clearSelection()
+  } finally { historyRestoring = false }
+  persistAnnotations()
+}
+
 function showNotice(message: string) {
   notice.value = message
   if (toastTimer !== undefined) window.clearTimeout(toastTimer)
@@ -423,6 +532,7 @@ function saveProperties() {
     category: editCategory.value.trim().slice(0, 50) || '地图标注',
     description: editDescription.value.trim().slice(0, 300),
   })
+  annotationLayer.changed()
   selectFeature(selected.value.feature)
   persistAnnotations()
   showNotice('标注属性已保存到本机')
@@ -435,6 +545,7 @@ function deactivateDrawing() {
 
 function setTool(tool: Tool) {
   deactivateDrawing()
+  if (tool !== 'polygon') drawAsClue.value = false
   activeTool.value = tool
   if (!map || tool === 'browse') return
 
@@ -460,17 +571,21 @@ function setTool(tool: Tool) {
       const index = annotationSource.getFeatures().length + 1
       feature.setProperties({
         id: 'A-' + Date.now() + '-' + ++annotationSerial,
-        name: '地图标注 ' + String(index).padStart(2, '0'),
+        name: (drawAsClue.value ? '变化关注区域 ' : '地图标注 ') + String(index).padStart(2, '0'),
         code: 'A-' + String(index).padStart(3, '0'),
-        category: '地图标注',
+        category: drawAsClue.value ? '变化线索' : '地图标注',
         unit: '当前工作区',
-        description: '用户绘制的空间标注',
+        description: drawAsClue.value ? '人工标绘的变化关注区域' : '用户绘制的空间标注',
+        createdAt: new Date().toISOString(),
       })
+      const wasClue = drawAsClue.value
+      drawAsClue.value = false
       window.queueMicrotask(() => {
         updateAnnotationCount()
         selectFeature(feature)
+        annotationLayer.changed()
       })
-      showNotice('标注已添加到当前工作区')
+      showNotice(wasClue ? '变化线索已登记到本机工作区' : '标注已添加到当前工作区')
     }
   })
   map.addInteraction(drawing)
@@ -511,6 +626,7 @@ async function importGeoJSON(event: Event) {
     annotationSource.addFeatures(features)
     updateAnnotationCount()
     persistAnnotations()
+    annotationLayer.changed()
     const extent = annotationSource.getExtent()
     map?.getView().fit(extent, { duration: 450, maxZoom: 15, padding: [80, 80, 80, 80] })
     layersVisible.value.annotations = true
@@ -592,16 +708,18 @@ onMounted(async () => {
   comparisonLayer.on('postrender', (event) => {
     if (compareEnabled.value) (event.context as CanvasRenderingContext2D | undefined)?.restore()
   })
-  annotationSource.on('addfeature', persistAnnotations)
+  annotationSource.on('addfeature', () => {persistAnnotations();scheduleHistory()})
   annotationSource.on('changefeature', (event) => {
     persistAnnotations()
+    scheduleHistory()
+    annotationLayer.changed()
     if (event.feature && selected.value?.feature === event.feature) {
       highlightSource.clear()
       highlightSource.addFeature(event.feature.clone())
     }
   })
-  annotationSource.on('removefeature', persistAnnotations)
-  annotationSource.on('clear', persistAnnotations)
+  annotationSource.on('removefeature', () => {persistAnnotations();scheduleHistory()})
+  annotationSource.on('clear', () => {persistAnnotations();scheduleHistory()})
   const savedDraft = localAnnotationRepository.load()
   if (savedDraft) {
     try {
@@ -616,6 +734,11 @@ onMounted(async () => {
     }
   }
   draftsInitialized = true
+  tasks.value = localTaskRepository.load()
+  historyReady = true
+  undoStack.push(snapshotAnnotations())
+  historyIndex = 0
+  historyVersion.value++
   window.addEventListener('pagehide', flushAnnotations)
   updateImageryLayers()
   modifying = new Modify({ source: annotationSource })
@@ -648,6 +771,10 @@ onMounted(async () => {
     }
     objectItems.value = items.map(asItem)
     dataLoaded.value = true
+    if (!selected.value) {
+      const first = items.find(item => item.get('category') !== '道路线路')
+      if (first) selectFeature(first)
+    }
   } catch (error) {
     showNotice(error instanceof Error ? error.message : '空间数据加载失败，请刷新页面')
   }
@@ -657,6 +784,7 @@ onBeforeUnmount(() => {
   deactivateDrawing()
   if (toastTimer !== undefined) window.clearTimeout(toastTimer)
   window.removeEventListener('pagehide', flushAnnotations)
+  if (historyTimer !== undefined) window.clearTimeout(historyTimer)
   flushAnnotations()
   map?.setTarget(undefined)
   map = null
