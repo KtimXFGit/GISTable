@@ -58,6 +58,8 @@ try {
         detail:css('.detail-fields strong'),
         iconCount:document.querySelectorAll('svg.ui-icon').length,
         panel:panels.map(e => ({name:e.className,client:e.clientHeight,scroll:e.scrollHeight})),
+        contents:[...document.querySelectorAll('.left-panel .section-inner,.right-panel .detail-body')]
+          .map(e => ({name:e.parentElement?.className,client:e.clientHeight,scroll:e.scrollHeight})),
         documentWidth:document.documentElement.scrollWidth,
         viewportWidth:innerWidth,
       }

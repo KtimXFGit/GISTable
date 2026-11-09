@@ -124,7 +124,7 @@ jobs:
         working-directory: frontend
         run: node scripts/browser-smoke.mjs
       - name: Upload browser viewport snapshots
-        if: success()
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: gistable-browser-snapshots
