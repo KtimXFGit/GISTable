@@ -390,6 +390,7 @@ function clearSelection() {
 
 function focusFeature(item: RecordItem) {
   if (!map) return
+  mobileMenuOpen.value = false
   selectFeature(item.feature)
   const extent = item.feature.getGeometry()?.getExtent()
   if (extent) map.getView().fit(extent, {
@@ -773,7 +774,10 @@ onMounted(async () => {
     dataLoaded.value = true
     if (!selected.value) {
       const first = items.find(item => item.get('category') !== '道路线路')
-      if (first) selectFeature(first)
+      if (first) {
+        selectFeature(first)
+        if (window.innerWidth <= 1000) detailDrawerOpen.value = false
+      }
     }
   } catch (error) {
     showNotice(error instanceof Error ? error.message : '空间数据加载失败，请刷新页面')
@@ -794,7 +798,7 @@ onBeforeUnmount(() => {
 <template>
   <div class="app-shell command-shell">
     <header class="header command-header">
-      <button class="mobile-panel-button" aria-label="打开图层与影像菜单" @click="mobileMenuOpen = !mobileMenuOpen">☰</button>
+      <button class="mobile-panel-button" aria-label="打开图层与影像菜单" @click="mobileMenuOpen = !mobileMenuOpen; detailDrawerOpen = false">☰</button>
       <div class="brand command-brand">
         <div class="brand-mark"><span class="brand-globe">◈</span></div>
         <div class="brand-copy">
